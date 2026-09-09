@@ -52,6 +52,7 @@ Develop against `@common/interfaces` and use `@common/mocks` until live adapters
 - [Environment setup](docs/ENVIRONMENT.md)
 - [Decision log](docs/DECISIONS.md)
 - [Demo and submission](docs/DEMO.md)
+- [Individual AI master prompts](docs/prompts/README.md)
 - [Formatted build plan](deliverables/Common_ETHOnline_2026_Build_Plan.docx)
 
 This repository starts private as requested. Revisit visibility and licensing before submission; the sponsor criteria previously reviewed require public source. Do not publish automatically.
