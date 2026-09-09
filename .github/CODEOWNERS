@@ -1,0 +1,7 @@
+# Shared integration files. Add verified teammate handles after they are provided.
+# Module ownership is documented in docs/FILE_MAP.md; GitHub rules are not enforced yet.
+/packages/interfaces/ @RudraBhaskar9439
+/package.json @RudraBhaskar9439
+/package-lock.json @RudraBhaskar9439
+/tsconfig*.json @RudraBhaskar9439
+/.github/ @RudraBhaskar9439
