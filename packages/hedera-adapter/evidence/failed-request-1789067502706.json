@@ -1,0 +1,25 @@
+{
+  "startedAt": "2026-09-10T19:11:41.882Z",
+  "finishedAt": "2026-09-10T19:11:42.705Z",
+  "resource": "http://localhost:3002/datasets/daily-transfers",
+  "network": "hedera:testnet",
+  "treasuryAccountId": "0.0.10463485",
+  "outcome": {
+    "status": "failed",
+    "reason": "facilitator_unavailable: /verify failed: 500 {\"message\":\"Payment verification failed\",\"error\":\"Internal Server Error\",\"statusCode\":500}",
+    "requirements": {
+      "scheme": "exact",
+      "network": "hedera:testnet",
+      "amount": "50000000",
+      "asset": "0.0.0",
+      "payTo": "0.0.10463575",
+      "maxTimeoutSeconds": 180,
+      "resource": "http://localhost:3002/datasets/daily-transfers",
+      "description": "Daily transfer counts, 30-day window (synthetic sample data).",
+      "mimeType": "application/json",
+      "extra": {
+        "feePayer": "0.0.7162784"
+      }
+    }
+  }
+}

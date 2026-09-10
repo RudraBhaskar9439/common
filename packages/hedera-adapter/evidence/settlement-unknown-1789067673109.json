@@ -1,0 +1,25 @@
+{
+  "startedAt": "2026-09-10T19:14:28.364Z",
+  "finishedAt": "2026-09-10T19:14:33.109Z",
+  "resource": "http://localhost:3002/datasets/daily-transfers",
+  "network": "hedera:testnet",
+  "treasuryAccountId": "0.0.10463485",
+  "outcome": {
+    "status": "settlement_unknown",
+    "reason": "Resource delivered content without a transaction id",
+    "requirements": {
+      "scheme": "exact",
+      "network": "hedera:testnet",
+      "amount": "50000000",
+      "asset": "0.0.0",
+      "payTo": "0.0.10463575",
+      "maxTimeoutSeconds": 180,
+      "resource": "http://localhost:3002/datasets/daily-transfers",
+      "description": "Daily transfer counts, 30-day window (synthetic sample data).",
+      "mimeType": "application/json",
+      "extra": {
+        "feePayer": "0.0.7162784"
+      }
+    }
+  }
+}

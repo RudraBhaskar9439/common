@@ -1,0 +1,18 @@
+{
+  "resource": "http://localhost:3002/datasets/daily-transfers",
+  "requirements": {
+    "scheme": "exact",
+    "network": "hedera:testnet",
+    "amount": "50000000",
+    "asset": "0.0.0",
+    "payTo": "0.0.10463485",
+    "maxTimeoutSeconds": 180,
+    "resource": "http://localhost:3002/datasets/daily-transfers",
+    "description": "Daily transfer counts, 30-day window (synthetic sample data).",
+    "mimeType": "application/json",
+    "extra": {
+      "feePayer": "0.0.7162784"
+    }
+  },
+  "submitted": false
+}
