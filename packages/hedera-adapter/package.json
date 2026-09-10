@@ -9,7 +9,8 @@
   "scripts": {
     "test": "tsx --test tests/*.test.ts",
     "pay:once": "tsx src/scripts/pay-once.ts",
-    "run:operation": "tsx src/scripts/run-operation.ts"
+    "run:operation": "tsx src/scripts/run-operation.ts",
+    "create:topic": "tsx src/scripts/create-topic.ts"
   },
   "dependencies": {
     "@common/interfaces": "*",

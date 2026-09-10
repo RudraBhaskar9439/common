@@ -15,6 +15,13 @@ export {
 } from './adapter.js';
 
 export { BudgetClient, ContractStatus, computeParamsHash, toId } from './contracts/budget-client.js';
+export {
+  buildNote,
+  createDecisionNotePublisher,
+  readNote,
+  type DecisionNotePublisher,
+  type PublishedNote,
+} from './hcs/decision-notes.js';
 export { reconcileSettlement, type ReconciliationResult } from './reconciliation/mirror-node.js';
 export { executePaidRequest, type PaidRequestOutcome } from './payments/x402-client.js';
 export { buildSignedTransfer } from './payments/transfer.js';
@@ -22,6 +29,7 @@ export { loadAdapterConfig, loadEnvFileIfPresent, type HederaAdapterConfig } fro
 
 import { createHederaSpendingAdapter, type HederaSpendingAdapter, type ResourceResolver } from './adapter.js';
 import { BudgetClient } from './contracts/budget-client.js';
+import { createDecisionNotePublisher } from './hcs/decision-notes.js';
 import { loadAdapterConfig, loadEnvFileIfPresent } from './config.js';
 
 /**
@@ -36,6 +44,18 @@ export function createLiveAdapter(resolveResource: ResourceResolver): HederaSpen
   loadEnvFileIfPresent();
   const config = loadAdapterConfig();
 
+  // HCS is optional. Without HCS_TOPIC_ID the adapter behaves exactly as it did before
+  // decision notes existed: the contract event is still written, and hcsStatus reports
+  // 'pending' honestly rather than claiming a note that was never published.
+  const notes = config.hcsTopicId
+    ? createDecisionNotePublisher({
+        network: config.network,
+        topicId: config.hcsTopicId,
+        accountId: config.treasuryAccountId,
+        privateKey: config.treasuryPrivateKey,
+      })
+    : undefined;
+
   return createHederaSpendingAdapter({
     budget: new BudgetClient(config.contractAddress, config.jsonRpcUrl, config.operatorPrivateKey),
     resolveResource,
@@ -44,6 +64,7 @@ export function createLiveAdapter(resolveResource: ResourceResolver): HederaSpen
     treasuryPrivateKey: config.treasuryPrivateKey,
     mirrorNodeUrl: config.mirrorNodeUrl,
     maxPaymentAmount: config.maxPaymentAmount,
+    ...(notes ? { notes } : {}),
   });
 }
 

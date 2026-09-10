@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { loadAdapterConfig, loadEnvFileIfPresent } from '../config.js';
 import { BudgetClient } from '../contracts/budget-client.js';
 import { createHederaSpendingAdapter, type ResourceResolver } from '../adapter.js';
+import { createDecisionNotePublisher } from '../hcs/decision-notes.js';
 
 const singleProvider =
   (binding: { resource: string; payTo: string; asset: string }): ResourceResolver =>
@@ -72,17 +73,29 @@ async function main(): Promise<void> {
   }
 
   const budget = new BudgetClient(config.contractAddress, config.jsonRpcUrl, config.operatorPrivateKey);
-  const adapter = createHederaSpendingAdapter(
-    {
-      budget,
-      resolveResource: singleProvider({ resource: RESOURCE_URL, payTo: PAY_TO, asset: '0.0.0' }),
-      network: config.network,
-      treasuryAccountId: config.treasuryAccountId,
-      treasuryPrivateKey: config.treasuryPrivateKey,
-      mirrorNodeUrl: config.mirrorNodeUrl,
-      maxPaymentAmount: config.maxPaymentAmount,
-    },
-  );
+
+  // Publish decision notes when a topic is configured; otherwise the run behaves exactly
+  // as it did before HCS existed and reports hcsStatus 'pending' honestly.
+  const notes = config.hcsTopicId
+    ? createDecisionNotePublisher({
+        network: config.network,
+        topicId: config.hcsTopicId,
+        accountId: config.treasuryAccountId,
+        privateKey: config.treasuryPrivateKey,
+      })
+    : undefined;
+  console.log(`hcs topic:  ${config.hcsTopicId || 'not configured — notes will not publish'}\n`);
+
+  const adapter = createHederaSpendingAdapter({
+    budget,
+    resolveResource: singleProvider({ resource: RESOURCE_URL, payTo: PAY_TO, asset: '0.0.0' }),
+    network: config.network,
+    treasuryAccountId: config.treasuryAccountId,
+    treasuryPrivateKey: config.treasuryPrivateKey,
+    mirrorNodeUrl: config.mirrorNodeUrl,
+    maxPaymentAmount: config.maxPaymentAmount,
+    ...(notes ? { notes } : {}),
+  });
 
   // --- setup -------------------------------------------------------------
   const operator = await budget.operatorAddress();
@@ -159,7 +172,11 @@ async function main(): Promise<void> {
     createdAt: new Date().toISOString(),
     operationId: operationA,
   });
-  record('agent B reuse decision', { eventTx: decision.eventTransactionId, hcs: decision.hcsStatus });
+  record('agent B reuse decision', {
+    eventTx: decision.eventTransactionId,
+    hcs: decision.hcsStatus,
+    hcsSequence: decision.hcsSequenceNumber ?? null,
+  });
 
   const final = await adapter.getOperation(operationA);
   const remaining = await budget.availableBudget(workspaceId);
@@ -173,6 +190,10 @@ async function main(): Promise<void> {
   const file = writeEvidence({ workspaceId, purchaseKey, operationA, operationB, steps, outcome: final });
   console.log(`\nevidence: ${file}`);
   console.log(`contract: https://hashscan.io/testnet/contract/${config.contractAddress}`);
+  if (config.hcsTopicId) {
+    console.log(`decisions: https://hashscan.io/testnet/topic/${config.hcsTopicId}`);
+  }
+  notes?.close();
 }
 
 function writeEvidence(body: Record<string, unknown>): string {

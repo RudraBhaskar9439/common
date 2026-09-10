@@ -25,6 +25,8 @@ export interface HederaAdapterConfig {
    * it. Usually the same portal ECDSA key as the treasury. Never logged.
    */
   operatorPrivateKey: string;
+  /** HCS topic for decision notes. Optional: without it, notes are not published. */
+  hcsTopicId: string;
 }
 
 class ConfigError extends Error {}
@@ -73,5 +75,6 @@ export function loadAdapterConfig(): HederaAdapterConfig {
     contractAddress: required('COMMON_CONTRACT_ADDRESS'),
     jsonRpcUrl: process.env['HEDERA_JSON_RPC_URL'] ?? JSON_RPC[network] ?? '',
     operatorPrivateKey: process.env['HEDERA_EVM_PRIVATE_KEY'] ?? required('HEDERA_PRIVATE_KEY'),
+    hcsTopicId: process.env['HCS_TOPIC_ID'] ?? '',
   };
 }

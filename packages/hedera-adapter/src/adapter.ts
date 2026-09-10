@@ -26,6 +26,7 @@ import type {
 import { BudgetClient, ContractStatus, computeParamsHash, type BoundParameters } from './contracts/budget-client.js';
 import { executePaidRequest } from './payments/x402-client.js';
 import { reconcileSettlement } from './reconciliation/mirror-node.js';
+import type { DecisionNotePublisher, PublishedNote } from './hcs/decision-notes.js';
 
 /** Where a purchase key can actually be bought, and who gets paid. */
 export interface ResourceBinding {
@@ -45,6 +46,12 @@ export interface HederaAdapterDeps {
   mirrorNodeUrl: string;
   maxPaymentAmount: bigint;
   reservationTtlSeconds?: number;
+  /**
+   * Optional. Without it, decisions still record their contract event and report
+   * `hcsStatus: 'pending'` — exactly the behaviour before HCS existed, so nothing
+   * downstream breaks when no topic is configured.
+   */
+  notes?: DecisionNotePublisher;
 }
 
 const STATUS_MAP: Record<ContractStatus, OperationStatus> = {
@@ -104,6 +111,11 @@ export interface HederaSpendingAdapter extends SpendingAdapter {
   }): Promise<void>;
   /** The only way out of settlement_unknown. Safe to call repeatedly. */
   reconcile(operationId: string): Promise<Operation>;
+  /**
+   * Republishes decision notes whose HCS write failed. Publishes only — it cannot reach
+   * payment execution, so it can never replay a payment. Safe to call on a timer.
+   */
+  retryDecisionNotes(): Promise<PublishedNote[]>;
 }
 
 export function createHederaSpendingAdapter(
@@ -248,17 +260,54 @@ export function createHederaSpendingAdapter(
 
     async recordDecision(input: DecisionRecord): Promise<DecisionReceipt> {
       const types: Record<DecisionRecord['type'], number> = { buy: 0, reuse: 1, wait: 2, reject: 3 };
+
+      // HCS FIRST, then the event carrying its sequence number.
+      //
+      // The two writes are not atomic, so the order decides which failure is survivable.
+      // This way a contract failure orphans a published note, which is harmless. The
+      // reverse would emit an event with an empty sequence number and permanently break
+      // the link unless a second event patched it.
+      //
+      // If publication fails the event is still written with an empty sequence number and
+      // the note is queued. `retryDecisionNotes()` republishes it. That retry touches no
+      // payment code, by construction.
+      let hcsSequenceNumber = '';
+      let hcsStatus: DecisionReceipt['hcsStatus'] = 'pending';
+
+      if (deps.notes) {
+        try {
+          const published = await deps.notes.publish(input);
+          hcsSequenceNumber = published.sequenceNumber;
+          hcsStatus = 'confirmed';
+        } catch {
+          deps.notes.queue(input);
+        }
+      }
+
       const eventTransactionId = await deps.budget.recordDecision({
         workspaceId: input.workspaceId,
         decisionId: input.decisionId,
         agentId: input.agentId,
         decisionType: types[input.type],
         operationId: input.operationId ?? '',
-        hcsSequenceNumber: '',
+        hcsSequenceNumber,
       });
-      // HCS publication is a separate, retryable write. It is not atomic with this
-      // event, and retrying it must never replay a payment.
-      return { decisionId: input.decisionId, hcsStatus: 'pending', eventStatus: 'confirmed', eventTransactionId };
+
+      const receipt: DecisionReceipt = {
+        decisionId: input.decisionId,
+        hcsStatus,
+        eventStatus: 'confirmed',
+        eventTransactionId,
+      };
+      if (hcsSequenceNumber) receipt.hcsSequenceNumber = hcsSequenceNumber;
+      return receipt;
+    },
+
+    async retryDecisionNotes() {
+      // Publishes queued notes and nothing else. This function has no access to payment
+      // execution, so an HCS retry cannot replay a payment even if called in a loop.
+      if (!deps.notes) return [];
+      return deps.notes.retryPending();
     },
 
     async recordDelivery(input): Promise<void> {

@@ -217,6 +217,46 @@ fake-success mode.
 adapter takes a `resolveResource(purchaseKey)` function and the provider catalogue
 currently lives in the adapter. Works, but it belongs in the shared contract.
 
+### 0.3g HCS decision notes — implemented
+
+MVP checklist item *"write decision notes to HCS and link them to indexed events"*.
+
+| Item | Value |
+| --- | --- |
+| Topic | `0.0.10465595` (testnet) |
+| Explorer | https://hashscan.io/testnet/topic/0.0.10465595 |
+| First note | sequence `1`, a `reuse` decision linked to operation `op-a-1789073075596` |
+| Read back | `GET /api/v1/topics/0.0.10465595/messages/{sequenceNumber}` |
+
+**Write order: HCS first, then the contract event carrying the sequence number.** The two
+writes are not atomic, so the order decides which failure is survivable. This way a
+contract failure orphans a published note, which is harmless. The reverse would emit an
+event with an empty sequence number and permanently break the link unless a second event
+patched it.
+
+**Retry cannot replay a payment, structurally.** `src/hcs/decision-notes.ts` imports no
+payment module, so no number of retries can reach `executePayment`. A failed publication
+is queued, deduplicated by decision id, and republished by `retryDecisionNotes()`. A test
+asserts the publisher's surface never grows a payment-shaped method. This closes the last
+Phase 4 case, *"HCS failure — retry note independently from payment"*.
+
+**No disruption to anyone.** Without `HCS_TOPIC_ID` the adapter behaves exactly as before:
+the contract event is still written and `hcsStatus` reports `pending` honestly. The ABI is
+unchanged, so Aditya is unaffected — `DecisionRecorded.hcsSequenceNumber` already existed
+and was simply always empty.
+
+**For Aditya:** decisions recorded before this change carry `hcsSequenceNumber: ""`. That
+is not a data error; the mapping should tolerate an empty value.
+
+**The topic has no submit key,** so anyone may post to it. That is deliberate: the notes
+are a public audit trail, and a submit key would imply the contents are authoritative.
+They are not.
+
+**Honest limitation, written into every note as a `disclaimer` field:** a consensus
+timestamp attests *when* a note was written, not that it is *true*. An agent can record
+reasoning that is mistaken or self-serving. The receipt and the observed delivery are the
+evidence; the note is a claim with a reliable clock attached.
+
 ### 0.4 The architecture this invalidates
 
 > **A reservation contract cannot enforce spending on this path.** Because settlement is a bare `TransferTransaction` signed by the payer's key and submitted by the facilitator, no contract sits between the signer and the funds. Any holder of the payer key can pay any `payTo` for any amount and skip our contract entirely. A reservation contract on this path is **advisory accounting, not onchain enforcement**, and we must not describe it as enforcement in the README, demo or submission.

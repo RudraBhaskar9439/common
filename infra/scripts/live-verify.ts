@@ -212,6 +212,34 @@ const checks: Check[] = [
   },
 ];
 
+const TOPIC = process.env['HCS_TOPIC_ID'] ?? '';
+
+if (TOPIC) {
+  checks.push({
+    group: 'hcs',
+    name: 'decision notes are readable from the mirror node',
+    async run() {
+      const response = await fetch(`${MIRROR}/api/v1/topics/${TOPIC}/messages?limit=1&order=desc`);
+      if (!response.ok) throw new Error(`mirror node returned ${response.status} for topic ${TOPIC}`);
+      const body = (await response.json()) as { messages?: Array<{ message?: string; sequence_number?: number }> };
+      const latest = body.messages?.[0];
+      if (!latest?.message) {
+        throw new Error(`topic ${TOPIC} has no messages yet — run an operation that records a decision`);
+      }
+
+      const note = JSON.parse(Buffer.from(latest.message, 'base64').toString('utf8')) as Record<string, unknown>;
+      if (!note['decisionId']) throw new Error('published note carries no decisionId');
+      // The note must never read as proof of its own contents.
+      if (!String(note['disclaimer'] ?? '').includes('not that it is true')) {
+        throw new Error('published note is missing its truth disclaimer');
+      }
+      return `sequence ${latest.sequence_number}, decision ${String(note['decisionId'])}, type ${String(note['type'])}`;
+    },
+  });
+} else {
+  console.log('note: HCS_TOPIC_ID not set — decision-note checks will not run\n');
+}
+
 async function main(): Promise<void> {
   console.log('Live verification against real services — no payment, no signing\n');
   let failed = 0;
@@ -223,10 +251,10 @@ async function main(): Promise<void> {
       console.log(`  ${group}`);
     }
     try {
-      console.log(`    PASS  ${check.name.padEnd(52)} ${await check.run()}`);
+      console.log(`    PASS  ${check.name.padEnd(56)} ${await check.run()}`);
     } catch (err) {
       failed += 1;
-      console.log(`    FAIL  ${check.name.padEnd(52)} ${err instanceof Error ? err.message : String(err)}`);
+      console.log(`    FAIL  ${check.name.padEnd(56)} ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
