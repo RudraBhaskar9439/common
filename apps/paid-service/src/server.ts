@@ -26,6 +26,7 @@ import {
   HEADER_PAYMENT_RESPONSE,
   HEADER_PAYMENT_SIGNATURE,
   MalformedPaymentError,
+  receiptOf,
   X402_VERSION,
   type PaymentRequirements,
 } from './payment/x402.js';
@@ -136,6 +137,10 @@ export function createApp(config: PaidServiceConfig, facilitator = new Facilitat
         return;
       }
 
+      // Facilitators vary in how they name the receipt field. Log the raw shape so a
+      // missing transaction id can be diagnosed without another paid request.
+      console.log('[settle] facilitator response:', JSON.stringify(settlement));
+
       if (!settlement.success) {
         json(res, 402, {
           x402Version: X402_VERSION,
@@ -154,7 +159,7 @@ export function createApp(config: PaidServiceConfig, facilitator = new Facilitat
           capabilities: dataset.capabilities,
           freshUntil: new Date(Date.now() + dataset.freshnessSeconds * 1000).toISOString(),
           payment: {
-            transactionId: settlement.transactionId ?? null,
+            transactionId: receiptOf(settlement) || null,
             network: settlement.network ?? config.network,
             payer: settlement.payer ?? null,
             /** Raw facilitator response, so a receipt is never lost to a field-name mismatch. */

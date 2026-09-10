@@ -16,6 +16,15 @@ export interface HederaAdapterConfig {
   mirrorNodeUrl: string;
   /** Hard ceiling per operation, in the asset's smallest unit. Enforced before signing. */
   maxPaymentAmount: bigint;
+  /** Deployed CommonBudget address. */
+  contractAddress: string;
+  /** Hedera EVM JSON-RPC relay, used for contract calls. */
+  jsonRpcUrl: string;
+  /**
+   * EVM key for the workspace operator. The contract's onlyOperator functions require
+   * it. Usually the same portal ECDSA key as the treasury. Never logged.
+   */
+  operatorPrivateKey: string;
 }
 
 class ConfigError extends Error {}
@@ -38,6 +47,12 @@ function required(name: string): string {
   return value;
 }
 
+const JSON_RPC: Record<string, string> = {
+  testnet: 'https://testnet.hashio.io/api',
+  mainnet: 'https://mainnet.hashio.io/api',
+  previewnet: 'https://previewnet.hashio.io/api',
+};
+
 const MIRROR_NODES: Record<string, string> = {
   testnet: 'https://testnet.mirrornode.hedera.com',
   mainnet: 'https://mainnet-public.mirrornode.hedera.com',
@@ -55,5 +70,8 @@ export function loadAdapterConfig(): HederaAdapterConfig {
     treasuryPrivateKey: required('HEDERA_PRIVATE_KEY'),
     mirrorNodeUrl: process.env['HEDERA_MIRROR_NODE_URL'] ?? (MIRROR_NODES[network] as string),
     maxPaymentAmount: BigInt(process.env['MAX_PAYMENT_AMOUNT'] ?? '100000000'),
+    contractAddress: required('COMMON_CONTRACT_ADDRESS'),
+    jsonRpcUrl: process.env['HEDERA_JSON_RPC_URL'] ?? JSON_RPC[network] ?? '',
+    operatorPrivateKey: process.env['HEDERA_EVM_PRIVATE_KEY'] ?? required('HEDERA_PRIVATE_KEY'),
   };
 }

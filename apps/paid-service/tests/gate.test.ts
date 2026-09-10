@@ -32,8 +32,12 @@ const config: PaidServiceConfig = {
   feePayer: '0.0.2222',
 };
 
-/** LABELED FAKE — no network, no chain, no facilitator. */
-function fakeFacilitator(overrides: {
+/**
+ * STUB facilitator — test-only, never imported by src/. It exists to force conditions
+ * Blocky402 will not produce on demand, such as a timeout mid-settlement. The same gate
+ * is verified against the REAL facilitator in infra/scripts/live-verify.ts.
+ */
+function stubFacilitator(overrides: {
   verify?: Partial<VerifyResponse>;
   settle?: Partial<SettleResponse>;
   throwOn?: 'verify' | 'settle';
@@ -99,7 +103,7 @@ const signedHeader = () =>
   } satisfies PaymentPayload);
 
 test('an unpaid request is refused with 402 and full payment requirements', async () => {
-  const app = createApp(config, fakeFacilitator({}) as never);
+  const app = createApp(config, stubFacilitator({}) as never);
   const res = await call(app, '/datasets/daily-transfers');
 
   assert.equal(res.status, 402);
@@ -119,13 +123,13 @@ test('an unpaid request is refused with 402 and full payment requirements', asyn
 });
 
 test('an unpaid request returns no dataset content', async () => {
-  const app = createApp(config, fakeFacilitator({}) as never);
+  const app = createApp(config, stubFacilitator({}) as never);
   const res = await call(app, '/datasets/daily-transfers');
   assert.equal((res.body as Record<string, unknown>)['content'], undefined);
 });
 
 test('a verified and settled request returns the dataset and a settlement header', async () => {
-  const app = createApp(config, fakeFacilitator({}) as never);
+  const app = createApp(config, stubFacilitator({}) as never);
   const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 200);
@@ -140,7 +144,7 @@ test('a verified and settled request returns the dataset and a settlement header
 });
 
 test('a payload the facilitator rejects does not deliver content', async () => {
-  const app = createApp(config, fakeFacilitator({ verify: { isValid: false, invalidReason: 'bad signature' } }) as never);
+  const app = createApp(config, stubFacilitator({ verify: { isValid: false, invalidReason: 'bad signature' } }) as never);
   const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 402);
@@ -152,7 +156,7 @@ test('a payload the facilitator rejects does not deliver content', async () => {
 test('a failed settlement does not deliver content', async () => {
   const app = createApp(
     config,
-    fakeFacilitator({ settle: { success: false, errorReason: 'insufficient balance' } }) as never,
+    stubFacilitator({ settle: { success: false, errorReason: 'insufficient balance' } }) as never,
   );
   const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
@@ -162,7 +166,7 @@ test('a failed settlement does not deliver content', async () => {
 });
 
 test('a facilitator outage reports unknown settlement rather than failure', async () => {
-  const app = createApp(config, fakeFacilitator({ throwOn: 'settle' }) as never);
+  const app = createApp(config, stubFacilitator({ throwOn: 'settle' }) as never);
   const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 502);
@@ -174,7 +178,7 @@ test('a facilitator outage reports unknown settlement rather than failure', asyn
 test('a plain network failure during settlement is still reported as unknown', async () => {
   // A real outage throws a TypeError from fetch, not a FacilitatorError. It must not
   // fall through to a generic error: the transfer may already have been submitted.
-  const app = createApp(config, fakeFacilitator({ throwOn: 'settle' }) as never);
+  const app = createApp(config, stubFacilitator({ throwOn: 'settle' }) as never);
   const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal((res.body as Record<string, unknown>)['error'], 'settlement_unknown');
@@ -183,7 +187,7 @@ test('a plain network failure during settlement is still reported as unknown', a
 
 test('a failure before settlement is safe to retry, not unknown', async () => {
   // Nothing was submitted, so the caller must not be pushed into reconciliation.
-  const app = createApp(config, fakeFacilitator({ throwOn: 'verify' }) as never);
+  const app = createApp(config, stubFacilitator({ throwOn: 'verify' }) as never);
   const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 502);
@@ -191,15 +195,43 @@ test('a failure before settlement is safe to retry, not unknown', async () => {
 });
 
 test('a malformed payment header is rejected without contacting the facilitator', async () => {
-  const app = createApp(config, fakeFacilitator({ throwOn: 'verify' }) as never);
+  const app = createApp(config, stubFacilitator({ throwOn: 'verify' }) as never);
   const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: 'not-base64-json' });
 
   assert.equal(res.status, 400);
   assert.equal((res.body as Record<string, unknown>)['error'], 'malformed_payment');
 });
 
+test('reads the receipt from the field Blocky402 actually uses', async () => {
+  // Observed on Hedera testnet: the receipt arrives as `transaction`, not
+  // `transactionId`. Reading only the spec's name loses the receipt and forces a
+  // successful payment down the reconciliation path for no reason.
+  const blocky402Shaped = {
+    async supported() {
+      return { kinds: [] };
+    },
+    async verify(): Promise<VerifyResponse> {
+      return { isValid: true };
+    },
+    async settle(): Promise<SettleResponse> {
+      // Exactly what Blocky402 returned on testnet — no `transactionId` at all.
+      return {
+        success: true,
+        transaction: '0.0.7162784@1789069246.329605799',
+        network: 'hedera:testnet',
+        payer: '0.0.10463485',
+      };
+    },
+  };
+  const app = createApp(config, blocky402Shaped as never);
+  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+
+  assert.equal(res.status, 200);
+  assert.equal((res.body as Record<string, any>)['payment'].transactionId, '0.0.7162784@1789069246.329605799');
+});
+
 test('an unknown dataset is refused before any payment is requested', async () => {
-  const app = createApp(config, fakeFacilitator({}) as never);
+  const app = createApp(config, stubFacilitator({}) as never);
   const res = await call(app, '/datasets/does-not-exist');
   assert.equal(res.status, 404);
 });

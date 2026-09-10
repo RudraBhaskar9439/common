@@ -81,11 +81,33 @@ Seeded scenario — workspace `keccak256("workspace-1")`, purchase key
 
 > **The seeded `PaymentSettled` carries the placeholder transaction id
 > `SEED-PLACEHOLDER-not-a-real-payment`. No money moved.** It exists so the indexer has
-> a log to read. Genuine payment evidence carries a Hedera transaction id of the form
-> `0.0.x@seconds.nanos` and arrives once the x402 path in `packages/hedera-adapter` runs.
-> Do not present the seeded event as payment evidence.
+> a log to read. Do not present the seeded event as payment evidence.
 
 Re-seed a fresh scenario with `npm run seed:testnet` (submits real transactions).
+
+### Prefer these: real operations with genuine payments
+
+The same contract now carries complete operations driven by the adapter, where
+`PaymentSettled` holds a **real Hedera transaction id**. Index these in preference to the
+seeded ones.
+
+| Workspace | Payment transaction id | Notes |
+| --- | --- | --- |
+| `demo-workspace-1789069182855` | `0.0.7162784@1789069246.329605799` | Clean run: reserved, competitor rejected, paid, delivered, reuse decision |
+| `demo-workspace-1789068849025` | recorded via reconciliation | Settlement was uncertain, then resolved from the mirror node |
+
+Both were produced by `packages/hedera-adapter` → `npm run run:operation`. Each run creates
+a fresh workspace and purchase key, so generating more indexable data is one command.
+
+Worth knowing for the mappings: real settlement ids have the form `0.0.x@seconds.nanos`.
+
+`demo-workspace-1789068849025` is the interesting one for the demo narrative — it emitted
+`SettlementUnknownFlagged` and was then resolved to `PaymentSettled` by mirror-node
+reconciliation rather than by paying twice. So that event has a real log to index.
+
+**`ReservationReleased` is the only event still without a log.** It fires on explicit
+release, expiry, or a reconciled-absent transfer, all of which arrive in Phase 4. Build
+the mapping from the ABI; I will point you at real logs once those tests run.
 
 ### Events
 

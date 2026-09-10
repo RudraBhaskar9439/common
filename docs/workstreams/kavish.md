@@ -100,6 +100,123 @@ reconciliation against the mirror node resolved the unknown case to paid.
 This is the strongest evidence in the workstream: the safety rules are not aspirational,
 they held against a real failure with real value moving.
 
+### 0.3d PHASE 2 GATE CLEARED: full operation, end to end on testnet
+
+`npm run run:operation` with `CONFIRM_REAL_PAYMENT=yes`, workspace
+`demo-workspace-1789068849025`, contract `0x7a6a1edE510692F5f6208733fD849833Fd86A893`.
+
+```
+agent A reserved        reserved, expires 2026-09-10T20:34:50Z
+agent B REJECTED        PURCHASE_PENDING  <- exactly one purchase
+payment                 settlement_unknown
+after reconciliation    paid              <- resolved automatically
+delivery recorded       usable
+agent B reuse decision  event 0x45b60cf234e297ca063ab7458dd8780f06c55439d0cb9d20bb7b58f85124430f
+result                  1 payment, 2 deliverables, 450,000,000 of 500,000,000 remaining
+```
+
+Every claim in the pitch is now demonstrated in one command against a live network:
+competing agents produce exactly one purchase, payment settles through Blocky402,
+uncertainty is recorded on-chain and resolved by mirror-node reconciliation rather than
+by retrying, delivery is a separate outcome, and the second agent reuses without paying.
+
+**Two Hedera-specific gotchas found:**
+
+1. **The JSON-RPC relay does not reliably return decodable custom-error data.** A correct
+   on-chain rejection surfaces as `execution reverted (unknown custom error)` even with
+   the error declared in the ABI. Fix: on a reserve failure, read chain state
+   (`activeClaim`, `isAgentAuthorized`, `availableBudget`) to establish the real cause.
+   The contract stays the authority; this only explains a failure that already happened,
+   so no race is introduced.
+2. **A shell-exported confirmation flag persists across commands.** `CONFIRM_REAL_PAYMENT`
+   stayed set from an earlier command and turned an intended dry run into a live one.
+   Always clear it in the same line: `...; Remove-Item Env:\CONFIRM_REAL_PAYMENT`.
+
+**Receipt gap — closed.** An earlier run reached `paid` only via reconciliation. Cause was
+a stale paid-service process, not the payment path: the raw facilitator response was not
+being passed through, so the client could not find the transaction id. After a restart,
+workspace `demo-workspace-1789069182855` returned `paid` directly with transaction id
+`0.0.7162784@1789069246.329605799`, in the `0.0.x@seconds.nanos` form the scheme specifies.
+
+The happy path now reads the receipt directly and reconciliation is recovery-only, which
+is the correct division: the recovery path must never be load-bearing on the happy path.
+
+### 0.3e PHASE 4: failure drills, and the money-safety bug they found
+
+`npx tsx infra/scripts/failure-drills.ts` runs every failure case against the **real**
+contract on testnet. Each run creates a fresh workspace, and the drills generate the
+`ReservationReleased` logs (reasons 0, 1 and 2) the subgraph previously lacked.
+
+| Drill | Property |
+| --- | --- |
+| Unauthorized agent | Cannot reserve |
+| Over-budget reservation | Refused, budget untouched |
+| Two agents competing | Exactly one reservation stands |
+| Conflicting parameters | Reused operation id with a different amount refused |
+| Crash before payment | Release restores budget; the key is reclaimable |
+| Crash after submission | Release refused, key stays claimed |
+| Unknown settlement, window open | Stays stuck rather than guessing |
+| Unknown settlement, proven absent | Released, budget returned |
+| Lapsed reservation | Expires and is reclaimed |
+| Paid operation | Cannot be paid twice |
+| Delivery failure | Payment stands, no refund, no automatic repurchase |
+
+#### The bug: reconciliation could adopt an unrelated payment
+
+Found on the drills' first run, by drill "an unknown settlement is not resolved while its
+window is open", which returned `paid` for an operation that had never been paid.
+
+`reconcileSettlement` matched on `(payer, payTo, amount)` with **no time bound**. Paying
+the same seller the same price is the normal case, so once more than one such transfer
+existed, a *stuck* operation matched an *earlier* one and was marked paid. The system
+would believe it had paid when it had not, and the seller was never paid for that
+operation — the exact failure this project exists to prevent, living inside the mechanism
+built to prevent it.
+
+Neither the unit tests nor three successful live payment runs exposed it. Only a drill
+that deliberately created a stuck operation did.
+
+**Fix:** every reconciliation is bounded by `notBeforeEpochSeconds`, the moment the
+reservation was created; a transfer that predates the reservation cannot be its payment.
+Applied both as a mirror-node query parameter and as a client-side timestamp check,
+because a correctness guarantee must not depend on a query string being honoured.
+Covered by two unit tests and a live check that re-runs a previously succeeding query
+with a tight bound and asserts it now finds nothing.
+
+#### Two error-reporting fixes, same root cause
+
+Hedera's JSON-RPC relay does not return decodable custom-error data, so correct on-chain
+refusals surfaced as `NOT_FOUND`:
+
+- `release` on an unknown settlement now pre-checks status and throws `SETTLEMENT_UNKNOWN`.
+- A conflicting-parameter reserve compares the on-chain `paramsHash` and reports precisely.
+
+The contract still enforces both rules; these only make the refusal legible.
+
+### 0.3f PHASE 3: handoffs and operations
+
+- `packages/hedera-adapter/README.md` — config table marking exactly one value secret,
+  worked examples for a normal operation and a reconciliation, every typed error with
+  what to do about it, restart behaviour, and an explicit list of what is not implemented.
+- `infra/scripts/health-check.ts` — five read-only pre-demo checks. A skipped check
+  reports `SKIP`, never `PASS`, so an unconfigured run cannot read as healthy.
+- `infra/scripts/live-verify.ts` — 10 checks against the real paid service, the real
+  facilitator and the real mirror node. Includes a check that the fee payer the
+  facilitator advertises matches the one the service offers; a rotation there would
+  otherwise fail every payment with an opaque 500.
+- `infra/README.md` — runbook: bring-up, redeploy, pause and revoke, recovering a stuck
+  operation, known limitations.
+
+**Test doubles policy.** Stubs exist only in `tests/`, never in `src/`, and only to force
+conditions the real services will not produce on demand (a facilitator that hangs, a
+mirror node that vanishes). Every behaviour they cover is also verified against live
+services in `live-verify.ts`. No production code path has a mock, a fallback, or a
+fake-success mode.
+
+**Interface gap for the team:** `ReserveInput` carries no `payTo` or `resource`, so the
+adapter takes a `resolveResource(purchaseKey)` function and the provider catalogue
+currently lives in the adapter. Works, but it belongs in the shared contract.
+
 ### 0.4 The architecture this invalidates
 
 > **A reservation contract cannot enforce spending on this path.** Because settlement is a bare `TransferTransaction` signed by the payer's key and submitted by the facilitator, no contract sits between the signer and the funds. Any holder of the payer key can pay any `payTo` for any amount and skip our contract entirely. A reservation contract on this path is **advisory accounting, not onchain enforcement**, and we must not describe it as enforcement in the README, demo or submission.

@@ -51,12 +51,25 @@ export interface VerifyResponse {
   payer?: string;
 }
 
+/**
+ * Blocky402 returns the receipt as `transaction`, observed on Hedera testnet:
+ *   { success, transaction: "0.0.7162784@1789069246.329605799", network, payer }
+ * The spec calls the field `transactionId`, so both are accepted. Never assume one.
+ */
 export interface SettleResponse {
   success: boolean;
+  /** Blocky402's field name for the Hedera transaction id. */
+  transaction?: string;
+  /** The spec's field name for the same value. */
   transactionId?: string;
   network?: string;
   payer?: string;
   errorReason?: string;
+}
+
+/** The receipt, whichever field carries it. Empty string when genuinely absent. */
+export function receiptOf(settlement: SettleResponse): string {
+  return settlement.transaction ?? settlement.transactionId ?? '';
 }
 
 export function encodeHeader(value: unknown): string {
