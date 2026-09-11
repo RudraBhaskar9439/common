@@ -31,10 +31,31 @@ export interface Dataset {
   build(blockNumber: number, options?: { fetchImpl?: typeof fetch }): Promise<unknown>;
 }
 
-const GATEWAY =
-  process.env['GRAPH_GATEWAY_URL'] ??
-  'https://gateway.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV';
+/**
+ * Which Subgraph we sell from, and on which chain.
+ *
+ * Configurable because the pinned block must be valid for the chain the Subgraph indexes:
+ * an Ethereum mainnet block number is meaningless against an Arbitrum deployment, and the
+ * gateway answers that with an unhelpful error. `npm run gateway:check` validates the
+ * configured subgraph and block together before anything is offered for sale.
+ *
+ * Default: Uniswap V3 on Ethereum mainnet, on The Graph's decentralized network.
+ */
+const SUBGRAPH_ID = process.env['GRAPH_SUBGRAPH_ID'] ?? 'EN9rjKtzNitTEb5hgt8bmiyzzhwBpJrJaRihkg8Me8Rr';
+const GATEWAY_BASE = (process.env['GRAPH_GATEWAY_URL'] ?? 'https://gateway.thegraph.com/api/subgraphs/id').replace(/\/$/, '');
+
+export const GATEWAY = `${GATEWAY_BASE}/${SUBGRAPH_ID}`;
+
+/**
+ * The API key travels in an Authorization header, never in the URL. The gateway also
+ * accepts it as a path segment; that form leaks the key into logs and `resource` strings,
+ * and `resource` is written to the chain.
+ */
 const API_KEY = process.env['GRAPH_API_KEY'];
+
+export function gatewayConfigured(): boolean {
+  return typeof API_KEY === 'string' && API_KEY.length > 0;
+}
 
 /** Shared shape so a dataset definition is a document plus metadata, nothing more. */
 function pinned(

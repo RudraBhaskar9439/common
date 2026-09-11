@@ -293,3 +293,23 @@ test('getDecisionHistory satisfies the shared interface with a verified note', a
   assert.equal(record.chosen, 'result-1789073544816');
   assert.equal(record.result?.workspaceId, WORKSPACE_LABEL);
 });
+
+test('the real gateway auth error is surfaced, not swallowed as empty', async () => {
+  // Verbatim from https://gateway.thegraph.com with a bad key. A caller must see this
+  // as a failure; read as an empty page it would mean "nothing was purchased".
+  const { memory } = reader(() => ({ json: { errors: [{ message: 'auth error: malformed API key' }] } }));
+  await assert.rejects(
+    () => memory.findPurchases({ workspaceId: 'w', purchaseKey: 'k' }),
+    (err: unknown) => err instanceof GraphQueryError && /auth error/.test(err.message),
+  );
+});
+
+test('a pinned query beyond the indexed head raises rather than returning nothing', async () => {
+  const { memory } = reader(() => ({
+    json: { errors: [{ message: 'failed to get block number: block 99999999 is not indexed yet' }] },
+  }));
+  await assert.rejects(
+    () => memory.findPurchases({ workspaceId: 'w', purchaseKey: 'k' }),
+    (err: unknown) => err instanceof GraphQueryError,
+  );
+});
