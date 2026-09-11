@@ -1,0 +1,59 @@
+# Common — CommonBudget indexer.
+#
+# network: `testnet` matches the graph-node provider key
+# `ethereum: 'testnet:https://testnet.hashio.io/api'` (see docker-compose.yml). A hosted
+# provider may use its own slug — Goldsky uses `hedera-testnet`. Only this line changes.
+#
+# Event handlers only. `trace_filter` and `trace_block` return "Not yet implemented" on
+# the Hedera relay, so callHandlers are unavailable. The ten events are sufficient.
+specVersion: 1.0.0
+description: Shared spending memory for AI agents — indexed budget, purchases and decisions.
+repository: https://github.com/RudraBhaskar9439/common
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: CommonBudget
+    network: testnet
+    source:
+      address: "0x7a6a1edE510692F5f6208733fD849833Fd86A893"
+      abi: CommonBudget
+      # Verified: folding every log from this block yields zero orphans. Every
+      # operationId-keyed event resolves to a PurchaseReserved already in range.
+      startBlock: 40352293
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mappings.ts
+      entities:
+        - Workspace
+        - AgentAuthorization
+        - WorkspaceAssetSpend
+        - SettlementTransfer
+        - Purchase
+        - Decision
+      abis:
+        - name: CommonBudget
+          file: ./abis/CommonBudget.json
+      eventHandlers:
+        - event: WorkspaceCreated(indexed bytes32,address)
+          handler: handleWorkspaceCreated
+        - event: WorkspaceFunded(indexed bytes32,uint256,uint256,uint64)
+          handler: handleWorkspaceFunded
+        - event: AgentAuthorized(indexed bytes32,indexed bytes32,bool,uint64)
+          handler: handleAgentAuthorized
+        - event: PurchaseReserved(indexed bytes32,indexed bytes32,indexed bytes32,bytes32,uint256,string,string,string,uint64,uint64)
+          handler: handlePurchaseReserved
+        - event: PaymentPending(indexed bytes32)
+          handler: handlePaymentPending
+        - event: SettlementUnknownFlagged(indexed bytes32)
+          handler: handleSettlementUnknownFlagged
+        - event: PaymentSettled(indexed bytes32,string,uint256,uint64)
+          handler: handlePaymentSettled
+        - event: DeliveryRecorded(indexed bytes32,bool,uint64,string,string)
+          handler: handleDeliveryRecorded
+        - event: ReservationReleased(indexed bytes32,uint8)
+          handler: handleReservationReleased
+        - event: DecisionRecorded(indexed bytes32,indexed bytes32,bytes32,uint8,bytes32,string)
+          handler: handleDecisionRecorded

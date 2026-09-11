@@ -1,0 +1,844 @@
+[
+  {
+    "inputs": [],
+    "name": "AgentNotAuthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ConflictingParameters",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
+    ],
+    "name": "InsufficientBudget",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum CommonBudget.Status",
+        "name": "current",
+        "type": "uint8"
+      }
+    ],
+    "name": "InvalidState",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotOperator",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OperationExists",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "PurchaseAlreadyReserved",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReservationNotExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SettlementUnknownBlocksRelease",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnknownOperation",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnknownWorkspace",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WorkspaceExists",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "agentId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "authorized",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "policyVersion",
+        "type": "uint64"
+      }
+    ],
+    "name": "AgentAuthorized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "decisionId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "agentId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "decisionType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "hcsSequenceNumber",
+        "type": "string"
+      }
+    ],
+    "name": "DecisionRecorded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "usable",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "freshUntil",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "resultRef",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "failureReason",
+        "type": "string"
+      }
+    ],
+    "name": "DeliveryRecorded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "PaymentPending",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "transactionId",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "settledAt",
+        "type": "uint64"
+      }
+    ],
+    "name": "PaymentSettled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "purchaseKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "agentId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "asset",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "payTo",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "resource",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "expiresAt",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "policyVersion",
+        "type": "uint64"
+      }
+    ],
+    "name": "PurchaseReserved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "reason",
+        "type": "uint8"
+      }
+    ],
+    "name": "ReservationReleased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "SettlementUnknownFlagged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "operator",
+        "type": "address"
+      }
+    ],
+    "name": "WorkspaceCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "budget",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "policyVersion",
+        "type": "uint64"
+      }
+    ],
+    "name": "WorkspaceFunded",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "purchaseKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "activeClaim",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "availableBudget",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "operator",
+        "type": "address"
+      }
+    ],
+    "name": "createWorkspace",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "expire",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "flagSettlementUnknown",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "fundWorkspace",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getOperation",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "workspaceId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "purchaseKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "agentId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint64",
+            "name": "expiresAt",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "policyVersion",
+            "type": "uint64"
+          },
+          {
+            "internalType": "enum CommonBudget.Status",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "paramsHash",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct CommonBudget.Operation",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getWorkspace",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "exists",
+            "type": "bool"
+          },
+          {
+            "internalType": "address",
+            "name": "operator",
+            "type": "address"
+          },
+          {
+            "internalType": "uint64",
+            "name": "policyVersion",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint256",
+            "name": "budget",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "committed",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "spent",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct CommonBudget.Workspace",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "agentId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "isAgentAuthorized",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "markPaymentPending",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "decisionId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "agentId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "decisionType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "hcsSequenceNumber",
+        "type": "string"
+      }
+    ],
+    "name": "recordDecision",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bool",
+        "name": "usable",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint64",
+        "name": "freshUntil",
+        "type": "uint64"
+      },
+      {
+        "internalType": "string",
+        "name": "resultRef",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "failureReason",
+        "type": "string"
+      }
+    ],
+    "name": "recordDelivery",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "transactionId",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "recordSettlement",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "release",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "releaseAfterReconciliation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "operationId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "agentId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "purchaseKey",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "asset",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "payTo",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "resource",
+        "type": "string"
+      },
+      {
+        "internalType": "uint64",
+        "name": "ttlSeconds",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "paramsHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "reserve",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workspaceId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "agentId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bool",
+        "name": "authorized",
+        "type": "bool"
+      }
+    ],
+    "name": "setAgentAuthorization",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

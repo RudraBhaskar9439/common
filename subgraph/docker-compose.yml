@@ -1,0 +1,54 @@
+# Local graph-node for development and for the indexing experiment.
+#
+# graph-node v0.45.0 is current; Hedera's own example still pins v0.27.0 from 2023. If a
+# sync halts on a block-hash or chain-continuity error, step the tag back (v0.4x, then
+# v0.27.0) — the subgraph itself does not change, only this tag.
+#
+# The provider key `testnet` must match `network: testnet` in subgraph.yaml.
+services:
+  graph-node:
+    image: graphprotocol/graph-node:v0.45.0
+    ports:
+      - '8000:8000'   # GraphQL
+      - '8001:8001'   # GraphQL websocket
+      - '8020:8020'   # JSON-RPC deploy
+      - '8030:8030'   # index node / status
+      - '8040:8040'   # metrics
+    depends_on:
+      - ipfs
+      - postgres
+    environment:
+      postgres_host: postgres
+      postgres_user: graph-node
+      postgres_pass: let-me-in
+      postgres_db: graph-node
+      ipfs: 'ipfs:5001'
+      ethereum: 'testnet:https://testnet.hashio.io/api'
+      GRAPH_LOG: info
+      # Hedera's relay serves blocks 0-2, so the historical genesis workaround in
+      # Hedera's example (GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER=1) appears unnecessary.
+      # Verified 2026-09-12; reinstate it if graph-node complains about genesis.
+      ETHEREUM_REORG_THRESHOLD: 1
+    restart: unless-stopped
+
+  ipfs:
+    image: ipfs/kubo:v0.33.0
+    ports:
+      - '5001:5001'
+    volumes:
+      - ./data/ipfs:/data/ipfs
+
+  postgres:
+    image: postgres:16
+    ports:
+      - '5432:5432'
+    command:
+      ['postgres', '-cshared_preload_libraries=pg_stat_statements', '-cmax_connections=200']
+    environment:
+      POSTGRES_USER: graph-node
+      POSTGRES_PASSWORD: let-me-in
+      POSTGRES_DB: graph-node
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_INITDB_ARGS: '-E UTF8 --locale=C'
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data

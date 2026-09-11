@@ -1,0 +1,8 @@
+node_modules/
+generated/
+build/
+data/
+.env
+# matchstick downloads its binary and a version cache into tests/
+tests/.bin/
+tests/.latest.json
