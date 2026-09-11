@@ -60,10 +60,15 @@ npm test           # gate logic against a labeled fake facilitator
 | `GET /facilitator/supported` | Proxies the facilitator's `/supported`, for diagnosis |
 | `GET /datasets/:id` | 402 without payment; dataset with a verified, settled payment |
 
-Datasets: `daily-transfers`, `token-holders`. Content is **synthetic sample data**,
-labeled as such in every payload. The point is a genuine payment gate, not the
-analytical value of the data. Output is deterministic, so two agents buying the same
-key provably receive identical bytes — which is what makes reuse verifiable.
+Datasets: `daily-transfers` (30 days of USDC/WETH 0.05% volume) and `pool-liquidity`
+(busiest pools by lifetime volume). Content is **live Uniswap V3 data from The Graph**,
+queried at a **pinned block** — so two agents buying the same key provably receive
+identical bytes, which is what makes reuse verifiable rather than asserted.
+
+The response reports **observed** capabilities, derived from the delivered bytes by
+`assessDelivery` in `@common/graph-client`, alongside the seller's `advertisedCapabilities`.
+A seller's own capability list can be wrong — two of ours were, and deriving from the
+payload is what found them.
 
 ## Tests
 

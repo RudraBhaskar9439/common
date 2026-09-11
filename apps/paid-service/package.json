@@ -9,5 +9,8 @@
     "test": "tsx --test tests/*.test.ts",
     "supported": "tsx src/scripts/check-facilitator.ts",
     "gateway:check": "tsx src/scripts/gateway-check.ts"
+  },
+  "dependencies": {
+    "@common/graph-client": "*"
   }
 }

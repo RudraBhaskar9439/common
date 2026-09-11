@@ -17,6 +17,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { loadConfig, loadEnvFileIfPresent, type PaidServiceConfig } from './config.js';
 import { findDataset, DATASETS, type Dataset } from './providers/datasets.js';
+import { assessDelivery } from '@common/graph-client';
 import {
   decodePaymentPayload,
   encodeHeader,
@@ -184,12 +185,23 @@ export function createApp(
         return;
       }
 
+      const content = await dataset.build(block, deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : undefined);
+      // Assessed here so the buyer is told what it is actually receiving.
+      const delivery = assessDelivery(content);
+
       json(
         res,
         200,
         {
           dataset: dataset.id,
-          capabilities: dataset.capabilities,
+          // Derived from the bytes being delivered, not declared by us. A seller's own
+          // capability list can be wrong, and two of ours were.
+          capabilities: delivery.capabilities,
+          advertisedCapabilities: dataset.capabilities,
+          capabilityEvidence: delivery.evidence,
+          usable: delivery.usable,
+          failureReason: delivery.failureReason ?? null,
+          rowCount: delivery.rowCount,
           freshUntil: new Date(Date.now() + dataset.freshnessSeconds * 1000).toISOString(),
           payment: {
             transactionId: receiptOf(settlement) || null,
@@ -198,7 +210,7 @@ export function createApp(
             /** Raw facilitator response, so a receipt is never lost to a field-name mismatch. */
             raw: settlement,
           },
-          content: await dataset.build(block, deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : undefined),
+          content,
         },
         { [HEADER_PAYMENT_RESPONSE]: encodeHeader(settlement) },
       );

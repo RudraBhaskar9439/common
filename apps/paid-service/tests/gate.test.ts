@@ -145,7 +145,12 @@ test('a verified and settled request returns the dataset and a settlement header
   assert.equal(body['dataset'], 'daily-transfers');
   assert.ok(body['content'], 'content must be delivered after settlement');
   assert.equal(body['payment'].transactionId, '0.0.2222@1757505600.000000001');
-  assert.deepEqual(body['capabilities'], DATASETS['daily-transfers']?.capabilities);
+  // The advertised list is the seller's claim; `capabilities` is derived from the bytes
+  // actually delivered. They are allowed to differ, and that divergence is the point.
+  assert.deepEqual(body['advertisedCapabilities'], DATASETS['daily-transfers']?.capabilities);
+  assert.ok(Array.isArray(body['capabilities']));
+  assert.equal(body['usable'], true);
+  assert.ok(body['rowCount'] > 0);
 
   const settle = decodeHeader<SettleResponse>(res.headers[HEADER_PAYMENT_RESPONSE] as string);
   assert.equal(settle.success, true);
@@ -296,4 +301,40 @@ test('requirements bind the resource url that was actually requested', () => {
   assert.ok(dataset);
   const requirements = buildRequirements(config, dataset, 'http://localhost:3002/datasets/daily-transfers');
   assert.equal(requirements.resource, 'http://localhost:3002/datasets/daily-transfers');
+});
+
+test('the response reports what the bytes contain, not what the seller claimed', async () => {
+  // A seller's capability list can simply be wrong — two of ours were, and deriving the
+  // list from the payload is what found them. So a buyer is told the observed list, with
+  // the evidence for each, and can compare it against the claim.
+  const thinPayload = (async () => ({
+    ok: true, status: 200,
+    json: async () => ({ data: { poolDayDatas: [{ id: 'p-1', volumeUSD: '1' }] } }),
+  })) as unknown as typeof fetch;
+
+  const app = createApp(config, stubFacilitator({}) as never, { fetchImpl: thinPayload });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const body = res.body as Record<string, any>;
+
+  assert.deepEqual(body['advertisedCapabilities'], DATASETS['daily-transfers']?.capabilities);
+  // No date field in this payload, so no time series can honestly be claimed.
+  assert.ok(!body['capabilities'].includes('historical-data'));
+  assert.ok(body['capabilities'].includes('volume-metrics'));
+  assert.match(body['capabilityEvidence']['volume-metrics'], /volume fields/);
+});
+
+test('an empty result set is delivered as unusable, with a reason a later agent can read', async () => {
+  const emptyPayload = (async () => ({
+    ok: true, status: 200, json: async () => ({ data: { poolDayDatas: [] } }),
+  })) as unknown as typeof fetch;
+
+  const app = createApp(config, stubFacilitator({}) as never, { fetchImpl: emptyPayload });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const body = res.body as Record<string, any>;
+
+  // The payment still settled — delivery failure is a separate outcome from payment.
+  assert.equal(res.status, 200);
+  assert.equal(body['usable'], false);
+  assert.match(body['failureReason'], /well-formed but empty/);
+  assert.equal(body['rowCount'], 0);
 });

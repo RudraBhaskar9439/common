@@ -72,12 +72,12 @@ Read three fields carefully:
 
 ## Worked example
 
-> *"Agent B needs the Uniswap top-pools dataset at block 25955502 for workspace
+> *"Agent B needs the Uniswap pool-liquidity dataset at block 25955502 for workspace
 > demo-workspace-1789073544816. Has anyone already bought it?"*
 
 1. `check_index_health` — confirm the memory is `synced`.
 2. `find_reuse_candidate` with that workspace and
-   `thegraph:token-holders:token-holders:block-25955502:demo-workspace-1789073544816`.
+   `thegraph:pool-liquidity:pool-liquidity:block-25955502:demo-workspace-1789073544816`.
 3. If a candidate comes back, `inspect_purchase` on its `operationId` to see the full
    lifecycle, then confirm capabilities against the result store.
 4. If none, say so plainly — and reserve through the contract before buying. Do not

@@ -29,6 +29,8 @@ export { isIndexedId, toIndexedId, verifyPreimage } from './ids.js';
 export { DEFAULT_ASSET_DECIMALS, HBAR_TOKEN_ID } from './money.js';
 export { configFromEnv } from './config.js';
 export { fetchPinnedGraphData, pinnedPurchaseKey, subgraphLabel } from './resource.js';
+export { assessDelivery, checkRequirement, deriveCapabilities, describePayload, CAPABILITY_PROBES } from './capabilities.js';
+export type { CapabilityProbe, DeliveryAssessment, DerivedCapabilities, PayloadShape, RequirementCheck } from './capabilities.js';
 export type { PinnedQuery, PinnedResult } from './resource.js';
 export type { GraphClientConfig } from './config.js';
 export type { DecisionRationale } from './hcs.js';

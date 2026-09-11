@@ -19,7 +19,11 @@ import { fetchPinnedGraphData, pinnedPurchaseKey } from '@common/graph-client';
 export interface Dataset {
   id: string;
   description: string;
-  /** Capability tags consumers match against before reusing a stored result. */
+  /**
+   * What the seller CLAIMS this dataset provides. A claim, not evidence — the buyer
+   * derives the real list from the delivered bytes with `assessDelivery`. Kept so the
+   * two can be compared, which is how two false claims here were found.
+   */
   capabilities: readonly string[];
   /** Seconds a delivered copy stays fresh. Drives Outcome.freshUntil downstream. */
   freshnessSeconds: number;
@@ -99,22 +103,26 @@ function pinned(
 export const DATASETS: Record<string, Dataset> = {
   'daily-transfers': pinned(
     'daily-transfers',
-    'Daily swap and volume totals for the busiest pools, at a pinned block.',
-    ['historical-data', 'daily-granularity'],
+    'Daily volume and transaction counts for the USDC/WETH 0.05% pool, 30 days to a pinned block.',
+    ['historical-data', 'daily-granularity', 'volume-metrics', 'transaction-counts'],
     86_400,
+    // Filtered to ONE pool. Ordering poolDayDatas by date alone returns the most recent
+    // day across many pools — 30 rows, one date, no time series. Capability derivation
+    // caught that: the dataset advertised historical-data the bytes did not contain.
     `query DailyTransfers($block: Int!) {
        poolDayDatas(
          block: { number: $block }
+         where: { pool: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640" }
          first: 30
          orderBy: date
          orderDirection: desc
-       ) { id date volumeUSD txCount }
+       ) { id date volumeUSD txCount liquidity }
      }`,
   ),
-  'token-holders': pinned(
-    'token-holders',
+  'pool-liquidity': pinned(
+    'pool-liquidity',
     'Busiest liquidity pools by lifetime volume, at a pinned block.',
-    ['holder-distribution', 'point-in-time'],
+    ['point-in-time', 'liquidity-metrics', 'volume-metrics', 'transaction-counts', 'token-metadata'],
     3_600,
     // Ordered by volume, not TVL. Ordering by totalValueLockedUSD surfaces tokens whose
     // derived price is broken in the Uniswap subgraph — the top result claimed $1.1
