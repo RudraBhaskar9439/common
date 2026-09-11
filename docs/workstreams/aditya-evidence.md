@@ -221,3 +221,84 @@ tutorial states the hosted service is unavailable and a local graph node is requ
 - **Nothing was deployed, pushed or published.**
 - The seeded `PaymentSettled` carries `SEED-PLACEHOLDER-not-a-real-payment`; it is a log to
   index, not payment evidence.
+
+---
+
+## 11. HCS decision notes bind to the indexed events
+
+Topic `0.0.10465595` (from `docs/workstreams/kavish-evidence.md`), read via the mirror node.
+
+```sh
+curl -s "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.10465595/messages?limit=5&order=asc"
+# 2 messages; base64-decode .messages[].message
+```
+
+Both notes carry the fields `DecisionRecorded` omits — `chosen`, `rejected`, `reason`,
+`createdAt` — **and plaintext identifiers**. Re-hashing those with `keccak256(utf8(x))` and
+comparing to the indexed `bytes32`:
+
+```
+HCS seq 1  (DecisionRecorded at block 40356185)
+  MATCH  decisionId   "decision-b-1789073075596"      -> 0x4df61cd63e8d…
+  MATCH  workspaceId  "demo-workspace-1789073075596"  -> 0x2559c95fea8e…
+  MATCH  agentId      "agent-b"                       -> 0xa2faf6b08bba…
+  MATCH  operationId  "op-a-1789073075596"            -> 0x07cba33099af…
+
+HCS seq 2  (DecisionRecorded at block 40356400)
+  MATCH  decisionId   "decision-b-1789073544816"      -> 0xdd3811334e6e…
+  MATCH  workspaceId  "demo-workspace-1789073544816"  -> 0xce2d9c7f59da…
+  MATCH  agentId      "agent-b"                       -> 0xa2faf6b08bba…
+  MATCH  operationId  "op-a-1789073544816"            -> 0x640a27e8643b…
+```
+
+8 of 8 fields matched. The other 4 `DecisionRecorded` logs carry
+`hcsSequenceNumber: ""` and have no note — rationale is unavailable for those, by design.
+
+The topic has **no submit key**, so anyone may post. The four-way keccak check is what makes
+a hydrated note trustworthy: nobody can post at a sequence number the contract already
+committed to.
+
+---
+
+## 12. Counter reconciliation against the mirror node
+
+The transfer that `PaymentSettled` recorded against two operations:
+
+```sh
+curl -s "https://testnet.mirrornode.hedera.com/api/v1/transactions/0.0.7162784-1789069246-329605799"
+# mirror-node records: 1   result SUCCESS
+#   0.0.10463485  -50000000 tinybar
+#   0.0.10463575  +50000000 tinybar
+```
+
+**One** transfer. The ledger records it as the settlement of two operations.
+
+Every payment the seller actually received:
+
+```sh
+curl -s "https://testnet.mirrornode.hedera.com/api/v1/transactions\
+?account.id=0.0.10463575&transactiontype=CRYPTOTRANSFER&limit=100&order=desc"
+
+SUCCESSFUL 0.5 HBAR payments received : 8
+distinct canonical transaction ids    : 8
+total actually received               : 400000000 tinybar
+
+  0.0.7162784@1789074269.171588287     0.0.7162784@1789072186.495089661
+  0.0.7162784@1789073600.680467509     0.0.7162784@1789069246.329605799
+  0.0.7162784@1789073145.346612118     0.0.7162784@1789068900.780108208
+  0.0.7162784@1789072946.072249776     0.0.7162784@1789067662.127260536
+```
+
+| Source | Payments | Tinybar |
+| --- | --- | --- |
+| Mirror node — ground truth | **8** | **400,000,000** |
+| `PaymentSettled` events, naive | 9 | 450,000,000 |
+| …excluding the seed placeholder | 8 | 400,000,000 |
+| …de-duplicated by canonical id | **7** | **350,000,000** |
+
+Canonical dedup collapses exactly the one pair the mirror node says is a single transfer,
+and nothing else — so the rule is verified against independent ground truth.
+
+The naive 8-event total matches the mirror node **by coincidence**: it double-counts
+`@1789069246.329605799` and omits `@1789067662.127260536`, which was a standalone `pay:once`
+test with no reservation and so never reached `recordSettlement`. Two offsetting errors.

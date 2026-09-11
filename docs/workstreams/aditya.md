@@ -563,3 +563,164 @@ decide; I have no blocking dependency either way.
 **Phase 0 gate: passed.** The indexing approach and the required handoffs are explicit; two
 blocking gaps (P1, and the P3/P6 counter semantics) are named with options rather than
 papered over; the shared interfaces remain untouched and proposed.
+
+---
+
+## 10. Addendum — after reading Kavish's payment architecture and evidence
+
+Read `docs/PAYMENT_ARCHITECTURE.md`, `docs/workstreams/kavish.md` and
+`docs/workstreams/kavish-evidence.md`. Two things in there change my design for the better,
+and one confirms a problem. All three are verified live, not inferred.
+
+### 10.1 P2 is solvable with no contract change — the HCS note carries the missing fields
+
+`kavish-evidence.md` gave me the topic id (`0.0.10465595`), which Phase 0 did not have. The
+notes contain **exactly** the fields `DecisionRecorded` omits, plus something I did not
+expect — **plaintext identifiers**:
+
+```json
+{ "decisionId": "decision-b-1789073544816",
+  "workspaceId": "demo-workspace-1789073544816",
+  "agentId": "agent-b",
+  "operationId": "op-a-1789073544816",
+  "type": "reuse",
+  "chosen": "result-1789073544816",
+  "rejected": "Buy a second copy",
+  "reason": "A fresh delivered result already exists for this purchase key.",
+  "createdAt": "2026-09-10T20:53:55.155Z",
+  "disclaimer": "Agent-stated reasoning. …attests when this was written, not that it is true." }
+```
+
+Kavish notes the topic **has no submit key — anyone may post to it**, deliberately, because
+the notes are claims rather than authority. That would normally make hydrated rationale
+untrusted. It doesn't have to be, because the identifiers are hashes of the plaintext:
+
+**Every identifier in both notes hashes exactly to the on-chain `bytes32`.** Verified for
+sequences 1 and 2, all four fields each:
+
+```
+HCS seq 2  (DecisionRecorded at block 40356400)
+  MATCH  decisionId   "decision-b-1789073544816"      keccak -> 0xdd3811334e6e…  == on-chain
+  MATCH  workspaceId  "demo-workspace-1789073544816"  keccak -> 0xce2d9c7f59da…  == on-chain
+  MATCH  agentId      "agent-b"                       keccak -> 0xa2faf6b08bba…  == on-chain
+  MATCH  operationId  "op-a-1789073544816"            keccak -> 0x640a27e8643b…  == on-chain
+```
+
+So the client can **verify** a note rather than trust it: fetch the sequence number the
+event committed to, re-hash the note's identifiers, and accept the rationale only on a
+four-way match. Anyone can post to the topic, but nobody can post at a sequence number the
+contract already pointed at. That is a genuine integrity property, and it is stronger than
+what an on-chain `string reason` would have given us — that would have been an unverified
+operator claim occupying gas.
+
+**Revised P2.** Keep `IndexedDecision` as the Graph-served type, and add an explicitly
+optional, explicitly verified hydration layer in `graph-client`:
+
+```ts
+export interface DecisionRationale {
+  chosen: string; rejected: string; reason: string;
+  authoredAt: ISODateTime;            // the note's own createdAt — an agent claim
+  consensusAt: ISODateTime;           // HCS consensus timestamp — when, not whether
+  binding: 'verified' | 'mismatched'; // four-way keccak check against the indexed event
+}
+// IndexedDecision.rationale?: DecisionRationale
+```
+
+Rules I will hold to: hydration happens **in the client, never in the mappings** — subgraph
+mappings cannot read HCS, as the brief warns. A `mismatched` note is surfaced as mismatched
+and its text is never returned as the decision's reason. A decision with
+`hcsSequenceNumber: ""` reports rationale as unavailable, which is the honest answer for the
+four pre-HCS decisions on chain.
+
+This softens P2 considerably: it is no longer "the Graph cannot answer this", it is "the
+Graph answers it with one verified mirror-node read". **New requirement:** `graph-client`
+needs the topic id and a mirror-node base URL as configuration (names only —
+`HCS_DECISION_TOPIC_ID`, `HEDERA_MIRROR_NODE_URL`).
+
+### 10.2 P7 improves too — preimages are recoverable where it matters
+
+I said unresolved `agentId` would surface as hex. For any decision carrying an HCS sequence
+number that is no longer true: the note supplies the plaintext and the keccak check proves
+it. Hex remains the fallback for the four pre-HCS decisions and for purchase-side
+identifiers, where no note exists. Recommendation in §7 is unchanged — keep `bytes32`, no
+contract change — and it is now better supported.
+
+### 10.3 The duplicate settlement is real, and the dedup rule reconciles exactly
+
+I checked the mirror node, which is independent of the contract ledger.
+
+The transfer recorded against two operations resolves to **one** transfer:
+
+```
+GET /api/v1/transactions/0.0.7162784-1789069246-329605799
+  mirror-node records: 1     result SUCCESS
+  0.0.10463485  -50000000 tinybar      0.0.10463575  +50000000 tinybar
+```
+
+Money moved **once**; the ledger records it as the settlement of two operations. Full
+reconciliation against every payment the seller actually received:
+
+| Source | Payments | Tinybar |
+| --- | --- | --- |
+| Mirror node — ground truth | **8** distinct | **400,000,000** |
+| `PaymentSettled` events | 9 | 450,000,000 naive |
+| …excluding the seed placeholder | 8 | 400,000,000 |
+| …de-duplicated by canonical id | **7** distinct | **350,000,000** |
+
+Two things follow, and the second is the interesting one.
+
+1. **The canonicalisation rule is correct.** Canonical dedup collapses exactly the one pair
+   the mirror node says is one transfer. Nothing else collapses.
+2. **The naive total is right by accident.** 8 events × 0.5 HBAR = 400,000,000, which
+   matches the mirror node — but the composition is wrong in two offsetting ways: it counts
+   `@1789069246.329605799` twice, and it misses `@1789067662.127260536` entirely, because
+   that payment was Kavish's standalone `pay:once` test and never had a reservation. Two
+   errors cancelling is not a working counter.
+
+So the rule for `purchaseSpend` is: exclude `SEED-PLACEHOLDER-*`, count distinct canonical
+transaction ids, keep per-asset integer totals, and never present a protocol-wide total as
+"money moved" without saying it is derived from the ledger rather than the mirror node.
+Per-workspace figures are unaffected by the duplicate — the two operations sit in different
+workspaces.
+
+**Question for Kavish narrowed.** `kavish-evidence.md` §"Payment receipts" says of the `-`
+and `@` forms: *"Same identifier, different rendering"* — which is right, and is exactly why
+the ledger double-counts: the two renderings were written as two settlements. Given §8 says
+the reconciliation time bound was added after the drills found this, my read is that the
+block-40355252 event is a **pre-fix artifact**. Please confirm, and confirm whether the
+fixed path now normalises the form before calling `recordSettlement` — if it does, I keep
+canonicalisation as defence in depth rather than a live correction.
+
+### 10.4 Things in his docs that resolve my open questions
+
+- **`failedRequests`.** `recordDelivery(usable: false)` is explicitly "delivery as an outcome
+  separate from payment", and the drill keeps the payment and the claim. So the two
+  `usable: false` operations are delivery failures, not payment failures. My §8 Q3 reading
+  is confirmed; I will name the counter `deliveryFailures` so it cannot be read as
+  "payments that failed".
+- **P5 decimals.** `kavish-evidence.md` "Known limitations" already states HBAR is 8 and that
+  a real per-asset value must be supplied before any HTS token is used, and that this
+  "affects display, never what is actually paid". That is the same conclusion as P5. His
+  registry and mine must be one shared constant, not two.
+- **P4 multi-asset is not hypothetical.** The transfer builder already supports HTS fungible
+  tokens; only HBAR is tested. So `purchaseSpendByAsset` is forward-compatibility for a path
+  his code already has, not speculative generality.
+- **`ReserveInput` has no `payTo`/`resource`.** He raises this as "one genuine gap for the
+  team" — the provider catalogue lives in `resolveResource(purchaseKey)` inside his adapter.
+  From the read side, both fields **are** on `PurchaseReserved` and are indexed, so the
+  subgraph can expose the bound `payTo` and `resource` per operation. That does not fix his
+  write-side gap, but it means the catalogue is publicly auditable after the fact, which is
+  worth saying when the interface change is discussed.
+- **Graph is never spending authority.** Stated in his §9.4 and his trust assumptions, and in
+  `AGENTS.md`. Restating it as my own constraint: `MemoryReader` will carry no method that
+  could be mistaken for authorization, and index lag is reported explicitly rather than
+  smoothed over.
+
+### 10.5 One thing I need him to not change
+
+`recordSettlement` requires `amount == op.amount` and `recordDelivery` requires status
+`Paid`, so the lifecycle is strictly ordered per operation. My fold relies on that: it is why
+`Purchase` can be a single mutable row keyed by `operationId` with no reordering buffer. If
+a future change let delivery precede settlement, or let amount differ, the mapping would need
+restructuring. Worth recording in `docs/DECISIONS.md` as an invariant rather than an
+accident.
