@@ -6,7 +6,15 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "tsx --test tests/*.test.ts",
+    "pay:once": "tsx src/scripts/pay-once.ts",
+    "run:operation": "tsx src/scripts/run-operation.ts",
+    "create:topic": "tsx src/scripts/create-topic.ts"
+  },
   "dependencies": {
-    "@common/interfaces": "*"
+    "@common/interfaces": "*",
+    "@hashgraph/sdk": "^2.62.0",
+    "ethers": "^6.13.0"
   }
 }

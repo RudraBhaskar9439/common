@@ -1,0 +1,88 @@
+{
+  "note": "Real onchain transactions. recordSettlement carries a placeholder id and is NOT payment evidence.",
+  "network": "hederaTestnet",
+  "chainId": 296,
+  "contract": "0x7a6a1edE510692F5f6208733fD849833Fd86A893",
+  "operator": "0xa8F6C40A598F67aB461d5291BBC264B138d93f1E",
+  "workspaceId": "0x118a93bbb170beccacb5672e437f4532aaf7b8b659218a286d075c2534dee1a3",
+  "purchaseKey": "0xc6b74d65a7b838d2e8b2df4de9dd976816142237e75a9dccc455e76a15c1e977",
+  "steps": [
+    {
+      "step": "createWorkspace",
+      "transactionHash": "0xb1ea9506e409c21e033fa4513030d06e68abb5583e1982e446ec463737d1853f",
+      "blockNumber": 40352374,
+      "events": [
+        "WorkspaceCreated"
+      ]
+    },
+    {
+      "step": "fundWorkspace",
+      "transactionHash": "0x28299cff00ff32c7c1d4860061c25e3d125ba997344a58d9cfc161a3e0c397cd",
+      "blockNumber": 40352378,
+      "events": [
+        "WorkspaceFunded"
+      ]
+    },
+    {
+      "step": "authorizeAgentA",
+      "transactionHash": "0xef11dce9187b1582b12248a8a14333923613130d3190afbf6c0671780b125b81",
+      "blockNumber": 40352383,
+      "events": [
+        "AgentAuthorized"
+      ]
+    },
+    {
+      "step": "authorizeAgentB",
+      "transactionHash": "0xfb5c011f0386a7ff9b65fa8c7f2674aff03be523632124501c1a0a8d2f4c42d3",
+      "blockNumber": 40352386,
+      "events": [
+        "AgentAuthorized"
+      ]
+    },
+    {
+      "step": "agentA.reserve",
+      "transactionHash": "0x24160d61f47e8002b3a0c64dcbebc2c33109a20c00a632f0ffc62502c109b35a",
+      "blockNumber": 40352390,
+      "events": [
+        "PurchaseReserved"
+      ]
+    },
+    {
+      "step": "agentB.reserve",
+      "rejected": true,
+      "reason": "PurchaseAlreadyReserved"
+    },
+    {
+      "step": "markPaymentPending",
+      "transactionHash": "0x619dc800c5f279126d3f2a4702475029a5fdf66644630d04523eb620438a63bc",
+      "blockNumber": 40352394,
+      "events": [
+        "PaymentPending"
+      ]
+    },
+    {
+      "step": "recordSettlement (PLACEHOLDER id)",
+      "transactionHash": "0xfad152fd75041238a8f4a597900d6abe2199c3b8889b11087196865ac6b6ce7d",
+      "blockNumber": 40352400,
+      "events": [
+        "PaymentSettled"
+      ]
+    },
+    {
+      "step": "recordDelivery",
+      "transactionHash": "0x749c7a889fde8f1757f7fd3b74933dead86ec48d388b165e5f101f65b5768d9c",
+      "blockNumber": 40352403,
+      "events": [
+        "DeliveryRecorded"
+      ]
+    },
+    {
+      "step": "agentB.recordDecision(reuse)",
+      "transactionHash": "0x98b0114440ae3bd11c5000fae65b27e23e4d43f00749f036ac96b9d51d45c575",
+      "blockNumber": 40352407,
+      "events": [
+        "DecisionRecorded"
+      ]
+    }
+  ]
+}

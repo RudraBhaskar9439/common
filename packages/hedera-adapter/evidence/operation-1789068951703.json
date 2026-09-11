@@ -1,0 +1,63 @@
+{
+  "workspaceId": "demo-workspace-1789068849025",
+  "purchaseKey": "common-paid-service:daily-transfers:1789068849025",
+  "operationA": "op-a-1789068849025",
+  "operationB": "op-b-1789068849025",
+  "steps": [
+    {
+      "step": "createWorkspace",
+      "tx": "0x1dd88978dff28407e993eedcae44a02fe69e081097140c7605128150ace83d64"
+    },
+    {
+      "step": "fundWorkspace",
+      "tx": "0x36a174d369263e0649b99d0e656b765d29de387e3563b0cf95fe517b4336b789"
+    },
+    {
+      "step": "authorize agent-a",
+      "tx": "0x719f4e6d1f442ebe8429aa7466aae3bb61705aa77b3a9c660c19f5b8d82a1b0e"
+    },
+    {
+      "step": "authorize agent-b",
+      "tx": "0xf1a26aba4c320866fe6a5ac9966044fb870de6a4dfcd8dcc8b7d43e06b2525ba"
+    },
+    {
+      "step": "agent A reserved",
+      "status": "reserved",
+      "expiresAt": "2026-09-10T20:34:50.000Z"
+    },
+    {
+      "step": "agent B REJECTED",
+      "code": "PURCHASE_PENDING",
+      "note": "exactly one purchase, as designed"
+    },
+    {
+      "step": "payment",
+      "status": "settlement_unknown",
+      "operationId": "op-a-1789068849025"
+    },
+    {
+      "step": "after reconciliation",
+      "status": "paid"
+    },
+    {
+      "step": "delivery recorded",
+      "usable": true
+    },
+    {
+      "step": "agent B reuse decision",
+      "eventTx": "0x45b60cf234e297ca063ab7458dd8780f06c55439d0cb9d20bb7b58f85124430f",
+      "hcs": "pending"
+    }
+  ],
+  "outcome": {
+    "operationId": "op-a-1789068849025",
+    "workspaceId": "demo-workspace-1789068849025",
+    "purchaseKey": "common-paid-service:daily-transfers:1789068849025",
+    "status": "delivered",
+    "amount": {
+      "amount": "50000000",
+      "tokenId": "0.0.0",
+      "decimals": 8
+    }
+  }
+}

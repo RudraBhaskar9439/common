@@ -1,0 +1,67 @@
+{
+  "workspaceId": "demo-workspace-1789072883537",
+  "purchaseKey": "common-paid-service:daily-transfers:1789072883537",
+  "operationA": "op-a-1789072883537",
+  "operationB": "op-b-1789072883537",
+  "steps": [
+    {
+      "step": "createWorkspace",
+      "tx": "0xbb235574a46961d30f1d27d1609b78204d457b7321e7fc79a18c379a74a76ac1"
+    },
+    {
+      "step": "fundWorkspace",
+      "tx": "0xfadaa819d739abcbb31ec844a3f3ef699c5f851df80189899bf320e489c6a208"
+    },
+    {
+      "step": "authorize agent-a",
+      "tx": "0x1ed099a148c70dfb072d7301ce6fc14122d4d584fa06dd19dad21ec5f38d7299"
+    },
+    {
+      "step": "authorize agent-b",
+      "tx": "0x8f1c8352d993ddc4a61c55940542e87400a8e9dc7d4405181d82c30e03874b9f"
+    },
+    {
+      "step": "agent A reserved",
+      "status": "reserved",
+      "expiresAt": "2026-09-10T21:42:20.000Z"
+    },
+    {
+      "step": "agent B REJECTED",
+      "code": "PURCHASE_PENDING",
+      "note": "exactly one purchase, as designed"
+    },
+    {
+      "step": "payment",
+      "status": "paid",
+      "receipt": {
+        "operationId": "op-a-1789072883537",
+        "transactionId": "0.0.7162784@1789072946.072249776",
+        "amount": {
+          "amount": "50000000",
+          "tokenId": "0.0.0",
+          "decimals": 8
+        }
+      }
+    },
+    {
+      "step": "delivery recorded",
+      "usable": true
+    },
+    {
+      "step": "agent B reuse decision",
+      "eventTx": "0x6214aa2f12a1a52ad92ec1a8c1c13c2121118cd94cda834839fb4300ca0e7d4f",
+      "hcs": "pending"
+    }
+  ],
+  "outcome": {
+    "operationId": "op-a-1789072883537",
+    "workspaceId": "demo-workspace-1789072883537",
+    "purchaseKey": "common-paid-service:daily-transfers:1789072883537",
+    "status": "delivered",
+    "amount": {
+      "amount": "50000000",
+      "tokenId": "0.0.0",
+      "decimals": 8
+    }
+  }
+}

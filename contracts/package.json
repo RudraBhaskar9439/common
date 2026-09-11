@@ -1,0 +1,18 @@
+{
+  "name": "common-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Common budget authority and reservation ledger (Kavish). Intentionally outside the root npm workspaces so root dependencies stay unchanged.",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "abi": "node script/export-abi.js",
+    "deploy:testnet": "hardhat run script/deploy.js --network hederaTestnet",
+    "seed:testnet": "hardhat run script/seed-testnet.js --network hederaTestnet"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.0"
+  }
+}
