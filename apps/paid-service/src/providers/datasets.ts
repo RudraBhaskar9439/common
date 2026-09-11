@@ -1,10 +1,21 @@
 /**
- * The paid resources. Deterministic so a demo run is reproducible and two agents
- * buying the same key provably receive the same bytes.
+ * The paid resources: live Subgraph data from The Graph, pinned to a block.
  *
- * Content is synthetic sample data, labeled as such. The point of this service is a
- * genuine x402 payment gate, not the analytical value of the payload.
+ * WHY PINNED. Two agents buying the same purchase key must provably receive identical
+ * bytes — that is what makes reuse verifiable rather than asserted, and it is the property
+ * the seeded generator used to provide. Live subgraph data changes between queries, so
+ * every query names a block and the payload is a pure function of
+ * (endpoint, document, variables, block).
+ *
+ * Nothing time-varying may enter the payload. No timestamps, no request ids. Adding one
+ * silently breaks byte-equality between two buyers, and it would look like a reuse bug
+ * rather than a provenance bug.
+ *
+ * The querying itself lives in `@common/graph-client`, which owns the Graph boundary.
+ * This module states what is for sale; it does not talk to The Graph directly.
  */
+import { fetchPinnedGraphData, pinnedPurchaseKey } from '@common/graph-client';
+
 export interface Dataset {
   id: string;
   description: string;
@@ -12,56 +23,90 @@ export interface Dataset {
   capabilities: readonly string[];
   /** Seconds a delivered copy stays fresh. Drives Outcome.freshUntil downstream. */
   freshnessSeconds: number;
-  build(): unknown;
+  /** Subgraph to buy from. A gateway URL may carry an API key; never echo it downstream. */
+  endpoint: string;
+  /** GraphQL document. Must accept `$block: Int!` and use `block: { number: $block }`. */
+  document: string;
+  /** Async because it performs a live, block-pinned query. `fetchImpl` is for tests. */
+  build(blockNumber: number, options?: { fetchImpl?: typeof fetch }): Promise<unknown>;
 }
 
-function seededSeries(seed: number, days: number): number[] {
-  const out: number[] = [];
-  let value = seed;
-  for (let i = 0; i < days; i += 1) {
-    value = (value * 1103515245 + 12345) % 2147483648;
-    out.push(1000 + (value % 9000));
-  }
-  return out;
+const GATEWAY =
+  process.env['GRAPH_GATEWAY_URL'] ??
+  'https://gateway.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV';
+const API_KEY = process.env['GRAPH_API_KEY'];
+
+/** Shared shape so a dataset definition is a document plus metadata, nothing more. */
+function pinned(
+  id: string,
+  description: string,
+  capabilities: readonly string[],
+  freshnessSeconds: number,
+  document: string,
+): Dataset {
+  const dataset: Dataset = {
+    id,
+    description,
+    capabilities,
+    freshnessSeconds,
+    endpoint: GATEWAY,
+    document,
+    async build(blockNumber: number, options?: { fetchImpl?: typeof fetch }) {
+      const spec: Parameters<typeof fetchPinnedGraphData>[0] = {
+        endpoint: GATEWAY,
+        name: id,
+        document,
+        blockNumber,
+      };
+      if (API_KEY) spec.apiKey = API_KEY;
+      return fetchPinnedGraphData(spec, options?.fetchImpl ? { fetchImpl: options.fetchImpl } : {});
+    },
+  };
+  return dataset;
 }
 
 export const DATASETS: Record<string, Dataset> = {
-  'daily-transfers': {
-    id: 'daily-transfers',
-    description: 'Daily transfer counts, 30-day window (synthetic sample data).',
-    capabilities: ['historical-data', 'daily-granularity'],
-    freshnessSeconds: 86_400,
-    build() {
-      const series = seededSeries(20260910, 30);
-      return {
-        source: 'common-paid-service',
-        disclaimer: 'Synthetic sample data for demonstration. Not real network statistics.',
-        window: { days: 30, granularity: 'daily' },
-        dailyTransfers: series,
-        summary: {
-          total: series.reduce((a, b) => a + b, 0),
-          mean: Math.round(series.reduce((a, b) => a + b, 0) / series.length),
-          peak: Math.max(...series),
-        },
-      };
-    },
-  },
-  'token-holders': {
-    id: 'token-holders',
-    description: 'Top token holder distribution snapshot (synthetic sample data).',
-    capabilities: ['holder-distribution', 'point-in-time'],
-    freshnessSeconds: 3_600,
-    build() {
-      const balances = seededSeries(77, 10).sort((a, b) => b - a);
-      return {
-        source: 'common-paid-service',
-        disclaimer: 'Synthetic sample data for demonstration. Not real holder data.',
-        holders: balances.map((balance, i) => ({ rank: i + 1, balance })),
-      };
-    },
-  },
+  'daily-transfers': pinned(
+    'daily-transfers',
+    'Daily swap and volume totals for the busiest pools, at a pinned block.',
+    ['historical-data', 'daily-granularity'],
+    86_400,
+    `query DailyTransfers($block: Int!) {
+       poolDayDatas(
+         block: { number: $block }
+         first: 30
+         orderBy: date
+         orderDirection: desc
+       ) { id date volumeUSD txCount }
+     }`,
+  ),
+  'token-holders': pinned(
+    'token-holders',
+    'Top liquidity pools by value locked, at a pinned block.',
+    ['holder-distribution', 'point-in-time'],
+    3_600,
+    `query TopPools($block: Int!) {
+       pools(
+         block: { number: $block }
+         first: 10
+         orderBy: totalValueLockedUSD
+         orderDirection: desc
+       ) { id totalValueLockedUSD token0 { symbol } token1 { symbol } }
+     }`,
+  ),
 };
 
 export function findDataset(id: string): Dataset | undefined {
   return DATASETS[id];
+}
+
+/**
+ * The purchase key two agents must agree on to reuse each other's purchase.
+ *
+ * The block number belongs in the key: the same block is the same resource and safe to
+ * reuse, a different block is genuinely different data. The previous date-scoped key let
+ * two agents share a key while the underlying chain state moved beneath them.
+ */
+export function datasetPurchaseKey(datasetId: string, blockNumber: number, workspaceId: string): string {
+  return pinnedPurchaseKey({ subgraph: datasetId, query: datasetId, blockNumber, workspaceId });
 }

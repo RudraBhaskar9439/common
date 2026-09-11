@@ -8,6 +8,8 @@
 services:
   graph-node:
     image: graphprotocol/graph-node:v0.45.0
+    # Published for amd64 only; runs under emulation on Apple silicon.
+    platform: linux/amd64
     ports:
       - '8000:8000'   # GraphQL
       - '8001:8001'   # GraphQL websocket
@@ -33,13 +35,16 @@ services:
 
   ipfs:
     image: ipfs/kubo:v0.33.0
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
     ports:
       - '5001:5001'
     volumes:
-      - ./data/ipfs:/data/ipfs
+      - ipfs-data:/data/ipfs
 
   postgres:
     image: postgres:16
+    # Must be native. An emulated postgres fails with a corrupted shared library.
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
     ports:
       - '5432:5432'
     command:
@@ -51,4 +56,10 @@ services:
       PGDATA: /var/lib/postgresql/data
       POSTGRES_INITDB_ARGS: '-E UTF8 --locale=C'
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+
+# Named volumes rather than bind mounts: nothing lands in the repo, and a macOS
+# bind mount under PGDATA is a known source of trouble. `npm run node:clean` removes them.
+volumes:
+  postgres-data:
+  ipfs-data:

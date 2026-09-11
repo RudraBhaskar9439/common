@@ -138,13 +138,30 @@ any query logic. That keeps the diff small and the ownership boundary intact.
 `capabilities` and `freshnessSeconds` keep their current meaning and stay on the same
 struct — they are still what the reuse gate reads.
 
-### 3.2 `apps/paid-service/src/server.ts`, line 168
+### 3.2 `apps/paid-service/src/server.ts` — applied, slightly larger than one word
 
-One word. The handler at line 56 is already `async`, so nothing else shifts:
+I said this was a one-word change. It is three small ones, because validating the block
+correctly matters more than keeping the diff at one line.
 
-```ts
-content: await dataset.build(),   // was: content: dataset.build(),
-```
+1. **`pinnedBlock(url)`** reads `?block=` from the request. The block must come from the
+   buyer, not the server: both sides have to agree on which block is being sold, and a
+   server-chosen block would give two buyers of the same purchase key different bytes.
+2. **`resource` now carries the query string**, so the contract's `paramsHash` binds which
+   block was bought — the same mechanism that already binds amount, asset and recipient.
+3. **A missing or malformed block is a 400 before a price is quoted**, next to the existing
+   unknown-dataset check. Refusing early rather than after `/settle` means we never take
+   payment for a request we cannot fulfil.
+4. `content: await dataset.build(block, ...)` — the original one-word change.
+5. **`createApp` takes an optional `{ fetchImpl }`**, the same injection its `facilitator`
+   already has, so tests never reach a live provider.
+
+His `gate.test.ts` needed updating too, and the determinism test became stronger rather
+than weaker. It previously asserted `build()` was byte-identical across calls. It now
+asserts that the same block and the same upstream response are byte-identical, **and** that
+the payload contains no timestamp — because a timestamp would silently break byte-equality
+between two buyers and would look like a reuse bug rather than a provenance bug. Three
+tests were added: a missing block is refused pre-payment, a different block is a different
+resource, and requirements bind the block. **16 paid-service tests pass, up from 13.**
 
 ### 3.3 Environment — no code change
 

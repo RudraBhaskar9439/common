@@ -46,13 +46,33 @@ export function buildRequirements(config: PaidServiceConfig, dataset: Dataset, r
   };
 }
 
+/**
+ * The pinned block, taken from `?block=`.
+ *
+ * It must come from the request, not the server: the buyer and the seller have to agree
+ * on which block is being sold, and `resource` — which carries the query string — is bound
+ * into the contract's paramsHash. A server-chosen block would make two buyers of the same
+ * purchase key receive different bytes, which is the property reuse depends on.
+ */
+function pinnedBlock(url: URL): number | null {
+  const raw = url.searchParams.get('block');
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  const block = Number(raw);
+  return Number.isSafeInteger(block) && block > 0 ? block : null;
+}
+
 function json(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
   const payload = JSON.stringify(body, null, 2);
   res.writeHead(status, { 'content-type': 'application/json', ...headers });
   res.end(payload);
 }
 
-export function createApp(config: PaidServiceConfig, facilitator = new FacilitatorClient(config.facilitatorUrl)) {
+export function createApp(
+  config: PaidServiceConfig,
+  facilitator = new FacilitatorClient(config.facilitatorUrl),
+  /** Injected in tests so the dataset query does not reach a live provider. */
+  deps: { fetchImpl?: typeof fetch } = {},
+) {
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
     const path = url.pathname;
@@ -91,7 +111,20 @@ export function createApp(config: PaidServiceConfig, facilitator = new Facilitat
       return;
     }
 
-    const resource = `${url.origin}${path}`;
+    // Refused before a price is quoted. Taking payment for a request that cannot be
+    // fulfilled is the failure worth avoiding here.
+    const block = pinnedBlock(url);
+    if (block === null) {
+      json(res, 400, {
+        error: 'missing_pinned_block',
+        detail: 'A ?block=<number> query parameter is required. Data is sold pinned to a block so two buyers of the same purchase key receive identical bytes.',
+      });
+      return;
+    }
+
+    // The block is part of the resource identity, so the reservation's paramsHash
+    // binds which block was bought.
+    const resource = `${url.origin}${path}${url.search}`;
     const requirements = buildRequirements(config, dataset, resource);
     const signature = req.headers[HEADER_PAYMENT_SIGNATURE];
 
@@ -165,7 +198,7 @@ export function createApp(config: PaidServiceConfig, facilitator = new Facilitat
             /** Raw facilitator response, so a receipt is never lost to a field-name mismatch. */
             raw: settlement,
           },
-          content: dataset.build(),
+          content: await dataset.build(block, deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : undefined),
         },
         { [HEADER_PAYMENT_RESPONSE]: encodeHeader(settlement) },
       );

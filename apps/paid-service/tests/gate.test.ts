@@ -102,9 +102,17 @@ const signedHeader = () =>
     payload: { transaction: 'BASE64_PARTIALLY_SIGNED_TRANSFER' },
   } satisfies PaymentPayload);
 
+
+/** Stubs the upstream Graph query. Tests must never reach a live provider. */
+const stubGraph = (async () => ({
+  ok: true,
+  status: 200,
+  json: async () => ({ data: { poolDayDatas: [{ id: 'p-1', date: 1, volumeUSD: '1', txCount: '2' }] } }),
+})) as unknown as typeof fetch;
+
 test('an unpaid request is refused with 402 and full payment requirements', async () => {
   const app = createApp(config, stubFacilitator({}) as never);
-  const res = await call(app, '/datasets/daily-transfers');
+  const res = await call(app, '/datasets/daily-transfers?block=21000000');
 
   assert.equal(res.status, 402);
   const header = res.headers[HEADER_PAYMENT_REQUIRED];
@@ -124,13 +132,13 @@ test('an unpaid request is refused with 402 and full payment requirements', asyn
 
 test('an unpaid request returns no dataset content', async () => {
   const app = createApp(config, stubFacilitator({}) as never);
-  const res = await call(app, '/datasets/daily-transfers');
+  const res = await call(app, '/datasets/daily-transfers?block=21000000');
   assert.equal((res.body as Record<string, unknown>)['content'], undefined);
 });
 
 test('a verified and settled request returns the dataset and a settlement header', async () => {
-  const app = createApp(config, stubFacilitator({}) as never);
-  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const app = createApp(config, stubFacilitator({}) as never, { fetchImpl: stubGraph });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 200);
   const body = res.body as Record<string, any>;
@@ -144,8 +152,8 @@ test('a verified and settled request returns the dataset and a settlement header
 });
 
 test('a payload the facilitator rejects does not deliver content', async () => {
-  const app = createApp(config, stubFacilitator({ verify: { isValid: false, invalidReason: 'bad signature' } }) as never);
-  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const app = createApp(config, stubFacilitator({ verify: { isValid: false, invalidReason: 'bad signature' } }) as never, { fetchImpl: stubGraph });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 402);
   const body = res.body as Record<string, unknown>;
@@ -158,7 +166,7 @@ test('a failed settlement does not deliver content', async () => {
     config,
     stubFacilitator({ settle: { success: false, errorReason: 'insufficient balance' } }) as never,
   );
-  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 402);
   assert.equal((res.body as Record<string, unknown>)['error'], 'settlement_failed');
@@ -166,8 +174,8 @@ test('a failed settlement does not deliver content', async () => {
 });
 
 test('a facilitator outage reports unknown settlement rather than failure', async () => {
-  const app = createApp(config, stubFacilitator({ throwOn: 'settle' }) as never);
-  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const app = createApp(config, stubFacilitator({ throwOn: 'settle' }) as never, { fetchImpl: stubGraph });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 502);
   const body = res.body as Record<string, unknown>;
@@ -178,8 +186,8 @@ test('a facilitator outage reports unknown settlement rather than failure', asyn
 test('a plain network failure during settlement is still reported as unknown', async () => {
   // A real outage throws a TypeError from fetch, not a FacilitatorError. It must not
   // fall through to a generic error: the transfer may already have been submitted.
-  const app = createApp(config, stubFacilitator({ throwOn: 'settle' }) as never);
-  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const app = createApp(config, stubFacilitator({ throwOn: 'settle' }) as never, { fetchImpl: stubGraph });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal((res.body as Record<string, unknown>)['error'], 'settlement_unknown');
   assert.equal((res.body as Record<string, unknown>)['content'], undefined);
@@ -187,8 +195,8 @@ test('a plain network failure during settlement is still reported as unknown', a
 
 test('a failure before settlement is safe to retry, not unknown', async () => {
   // Nothing was submitted, so the caller must not be pushed into reconciliation.
-  const app = createApp(config, stubFacilitator({ throwOn: 'verify' }) as never);
-  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const app = createApp(config, stubFacilitator({ throwOn: 'verify' }) as never, { fetchImpl: stubGraph });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 502);
   assert.equal((res.body as Record<string, unknown>)['settlementCertainty'], 'none');
@@ -196,7 +204,7 @@ test('a failure before settlement is safe to retry, not unknown', async () => {
 
 test('a malformed payment header is rejected without contacting the facilitator', async () => {
   const app = createApp(config, stubFacilitator({ throwOn: 'verify' }) as never);
-  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: 'not-base64-json' });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: 'not-base64-json' });
 
   assert.equal(res.status, 400);
   assert.equal((res.body as Record<string, unknown>)['error'], 'malformed_payment');
@@ -223,8 +231,8 @@ test('reads the receipt from the field Blocky402 actually uses', async () => {
       };
     },
   };
-  const app = createApp(config, blocky402Shaped as never);
-  const res = await call(app, '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+  const app = createApp(config, blocky402Shaped as never, { fetchImpl: stubGraph });
+  const res = await call(app, '/datasets/daily-transfers?block=21000000', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
 
   assert.equal(res.status, 200);
   assert.equal((res.body as Record<string, any>)['payment'].transactionId, '0.0.7162784@1789069246.329605799');
@@ -236,10 +244,51 @@ test('an unknown dataset is refused before any payment is requested', async () =
   assert.equal(res.status, 404);
 });
 
-test('the same dataset is byte-identical across calls, so two agents get the same result', () => {
-  const first = JSON.stringify(DATASETS['daily-transfers']?.build());
-  const second = JSON.stringify(DATASETS['daily-transfers']?.build());
+test('the same block is byte-identical across calls, so two agents get the same result', async () => {
+  const dataset = DATASETS['daily-transfers'];
+  assert.ok(dataset);
+  // A stub, because determinism is a property of OUR payload, not of the upstream.
+  const stub = (async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ data: { poolDayDatas: [{ id: 'p-1', date: 1, volumeUSD: '1', txCount: '2' }] } }),
+  })) as unknown as typeof fetch;
+
+  const first = JSON.stringify(await dataset.build(21_000_000, { fetchImpl: stub }));
+  const second = JSON.stringify(await dataset.build(21_000_000, { fetchImpl: stub }));
   assert.equal(first, second);
+
+  // A timestamp or request id in the payload would silently break byte-equality between
+  // two buyers, and would look like a reuse bug rather than a provenance bug.
+  assert.doesNotMatch(first, /\d{4}-\d{2}-\d{2}T/, 'payload must contain no timestamp');
+  assert.match(first, /"blockNumber":21000000/, 'payload must record the block it was pinned to');
+});
+
+test('a different block is a different resource', async () => {
+  const dataset = DATASETS['daily-transfers'];
+  assert.ok(dataset);
+  const stub = (async () => ({
+    ok: true, status: 200, json: async () => ({ data: { poolDayDatas: [] } }),
+  })) as unknown as typeof fetch;
+  const a = JSON.stringify(await dataset.build(21_000_000, { fetchImpl: stub }));
+  const b = JSON.stringify(await dataset.build(21_000_001, { fetchImpl: stub }));
+  assert.notEqual(a, b);
+});
+
+test('a request without a pinned block is refused before a price is quoted', async () => {
+  const app = createApp(config, stubFacilitator({}) as never);
+  const res = await call(app, '/datasets/daily-transfers');
+  assert.equal(res.status, 400);
+  assert.equal((res.body as Record<string, unknown>)['error'], 'missing_pinned_block');
+});
+
+test('requirements bind the block that was requested, so paramsHash covers it', () => {
+  const dataset = DATASETS['daily-transfers'];
+  assert.ok(dataset);
+  const requirements = buildRequirements(
+    config, dataset, 'http://localhost:3002/datasets/daily-transfers?block=21000000',
+  );
+  assert.match(requirements.resource, /\?block=21000000$/);
 });
 
 test('requirements bind the resource url that was actually requested', () => {

@@ -302,3 +302,151 @@ and nothing else — so the rule is verified against independent ground truth.
 The naive 8-event total matches the mirror node **by coincidence**: it double-counts
 `@1789069246.329605799` and omits `@1789067662.127260536`, which was a standalone `pay:once`
 test with no reservation and so never reached `recordSettlement`. Two offsetting errors.
+
+---
+
+## 13. LIVE: graph-node v0.45.0 indexes Hedera testnet
+
+The open question from Phase 0 — whether a current `graph-node` can sync Hedera at all —
+is answered. **It can.**
+
+```sh
+cd subgraph
+npm install
+npm run node:up                 # graph-node v0.45.0 + postgres 16 + ipfs, docker compose
+npm run create:local
+npm run deploy:local
+```
+
+Chain accepted at startup:
+
+```
+INFO Creating transport, capabilities: archive, traces, url: https://testnet.hashio.io/api
+INFO Creating block ingestor, network_name: testnet
+INFO Starting block ingestor for network, kind: ethereum, network_name: testnet
+INFO Syncing 1 blocks from Ethereum, latest_block_head: 40394941, current_block_head: 40394940
+```
+
+Synced to the head, healthy:
+
+```json
+{"synced": true, "health": "healthy",
+ "chains": [{"latestBlock": {"number": "40394976"},
+             "chainHeadBlock": {"number": "40394976"}}]}
+```
+
+~42,700 blocks from start block 40352293 to the head, no fatal error, no halt.
+
+### Two gotchas worth writing down
+
+**`eth_getBlockReceipts` is unsupported by the relay.** graph-node probes for it, logs a
+warning and carries on with individual receipt calls. Non-fatal, and it appears in the log
+as an alarming HTTP 400:
+
+```
+WARN Skipping use of block receipts, reason: Error fetching block receipts: HTTP error 400
+     ... Expected 0x prefixed hexadecimal block number ...
+```
+
+**Postgres must run natively.** On Apple silicon a corrupted `postgres:16` layer produced
+`exec /usr/local/bin/docker-entrypoint.sh: accessing a corrupted shared library` and the
+container exited 255 before graph-node could connect. `docker rmi postgres:16 && docker
+pull --platform linux/arm64 postgres:16` fixed it. `graph-node` itself is published for
+amd64 only and runs under emulation; that works. The compose file uses named volumes —
+a macOS bind mount under `PGDATA` is a known source of trouble.
+
+---
+
+## 14. LIVE: indexed counters reconcile with the raw event log
+
+The independent raw-log fold in §6 was computed before the subgraph existed. The deployed
+subgraph agrees with it exactly:
+
+| | Raw log fold (§6) | Live subgraph |
+| --- | --- | --- |
+| Workspaces | 14 | **14** |
+| Purchases | 40 | **40** |
+| Decisions | 6 | **6** |
+| Distinct canonical transfers | 8 | **8** |
+| Reuse candidates | 6 | **6** |
+
+The subgraph **independently rediscovered the duplicated transfer** from live chain data,
+without being told about it:
+
+```
+duplicated records : 1   0.0.7162784@1789069246.329605799 x2
+placeholders       : 1   SEED-PLACEHOLDER-not-a-real-payment
+indexed block      : 40394988 | indexing errors: false
+```
+
+Reuse candidates, from the live index — the query agent B needs:
+
+```
+result-1789073075596      ws 0x2559c95fea…   freshUntil 1789159563
+result-1789068849025      ws 0x7937fe83bd…   freshUntil 1789155332
+result-1789069182855      ws 0xb07e3f1399…   freshUntil 1789155665
+result-1789073544816      ws 0xce2d9c7f59…   freshUntil 1789160024
+result-1789072883537      ws 0xd8a21a516c…   freshUntil 1789159370
+result-daily-transfers-1  ws 0x118a93bbb1…   freshUntil 1789151484
+```
+
+Correctly excluded, with `resultRef` mapped to null rather than an empty reference:
+
+```
+0x17ae0f069d67…  resultRef: null | provider returned a corrupt payload
+0x4da13eddb261…  resultRef: null | provider returned a corrupt payload
+```
+
+Spend, with the de-duplication doing its job:
+
+```
+de-duplicated total :  400000000 tinybar
+raw total           :  450000000 tinybar
+```
+
+The 50,000,000 difference is the duplicated record, excluded exactly once.
+
+---
+
+## 15. LIVE: the client reads the live index
+
+```sh
+cd packages/graph-client
+GRAPH_ENDPOINT=http://localhost:8000/subgraphs/name/common/budget \
+GRAPH_CHAIN_HEAD_RPC_URL=https://testnet.hashio.io/api \
+HEDERA_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com \
+HCS_DECISION_TOPIC_ID=0.0.10465595 \
+npm run live:check
+```
+
+All checks passed across five workspaces. The two results worth highlighting:
+
+**Rationale verified end to end, against the real HCS topic:**
+
+```
+demo-workspace-1789073544816
+  PASS  decision reuse    agent agent-b | rationale: verified
+        reason: "A fresh delivered result already exists for this purchase key."
+```
+
+The plaintext `agent-b` appears because the note's identifiers re-hashed to the indexed
+`bytes32`. Decisions that predate HCS report `rationale: no note on chain` and keep the
+hex identifier — no guessing.
+
+**Index lag reported as a fact, not a hope:** `index synced @ 40395016`, from `_meta`
+compared against the live chain head.
+
+**Placeholder excluded from spend:** `workspace-1` shows `dedup 0 vs raw 50000000`, which
+is the seeded settlement correctly contributing nothing.
+
+---
+
+## What sections 13-15 do NOT show
+
+- **The index is local.** A self-hosted `graph-node` on `localhost:8000` is "local-only",
+  which the ETHOnline Graph track explicitly disqualifies. This proves the pipeline works;
+  it does not satisfy that requirement.
+- **No payment was made** and no key was used. Everything here is read-only.
+- **The paid Graph query path is not yet live** — `apps/paid-service` now queries a
+  Subgraph, but that has only been exercised against a stubbed provider, not a real
+  gateway with an API key.
