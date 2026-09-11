@@ -7,6 +7,10 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@common/interfaces": "*"
+    "@common/interfaces": "*",
+    "ethers": "^6.13.0"
+  },
+  "scripts": {
+    "test": "tsx --test tests/*.test.ts"
   }
 }
