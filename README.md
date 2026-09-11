@@ -46,7 +46,11 @@ Develop against `@common/interfaces` and use `@common/mocks` until live adapters
 
 ## Project documents
 
+- [Documentation index](docs/README.md)
+- **[New architecture — The Graph as the paid resource](docs/NEW_ARCHITECTURE.md)**
 - [Architecture and trust boundaries](docs/ARCHITECTURE.md)
+- [Payment architecture as built](docs/PAYMENT_ARCHITECTURE.md)
+- [Kavish: verified state and required changes](docs/KAVISH_IMPLEMENTATION.md)
 - [Interface draft and review checklist](docs/INTERFACES.md)
 - [Tasks and acceptance evidence](docs/TASKS.md)
 - [Environment setup](docs/ENVIRONMENT.md)
