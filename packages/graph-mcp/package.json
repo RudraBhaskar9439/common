@@ -1,0 +1,24 @@
+{
+  "name": "@common/graph-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server exposing Common's indexed spending memory to AI agents. Read-only by construction.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "common-graph-mcp": "./src/server.ts"
+  },
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "live:check": "tsx src/scripts/live-mcp-check.ts"
+  },
+  "dependencies": {
+    "@common/graph-client": "*",
+    "@common/interfaces": "*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.0"
+  }
+}

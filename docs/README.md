@@ -22,6 +22,7 @@ Read `../README.md` and `../CONTRIBUTING.md` first, then the document for your w
 | [workstreams/kavish-evidence.md](workstreams/kavish-evidence.md) | Kavish | Identifiers, receipts, reproduction |
 | [workstreams/aditya.md](workstreams/aditya.md) | Aditya | Graph read layer: indexed model, interface proposals, feasibility |
 | [workstreams/aditya-evidence.md](workstreams/aditya-evidence.md) | Aditya | Reproduction for every Graph-side claim |
+| [../packages/graph-mcp/SKILL.md](../packages/graph-mcp/SKILL.md) | Aditya | How an agent should use Common's memory, and what it must not conclude |
 
 ## Operations and delivery
 
