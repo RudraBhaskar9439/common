@@ -1,0 +1,193 @@
+# Common — indexed read layer over CommonBudget.
+#
+# Indexes events only. `trace_filter` and `trace_block` are unimplemented on the Hedera
+# JSON-RPC relay, so call handlers are unavailable — the ten events cover everything the
+# read layer needs.
+#
+# This index supports discovery and history. It is NEVER spending authority: an empty or
+# lagging result is not permission to buy. Only the contract reservation is.
+
+type Workspace @entity(immutable: false) {
+  "workspaceId — keccak256(utf8(label)). The label preimage is not recoverable on chain."
+  id: Bytes!
+  operator: Bytes!
+  "Latest policyVersion seen on any event for this workspace."
+  policyVersion: BigInt!
+  "Cumulative allocation from WorkspaceFunded. An accounting figure; the contract holds no funds."
+  budget: BigInt!
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  lastUpdatedAt: BigInt!
+
+  authorizations: [AgentAuthorization!]! @derivedFrom(field: "workspace")
+  purchases: [Purchase!]! @derivedFrom(field: "workspace")
+  decisions: [Decision!]! @derivedFrom(field: "workspace")
+  "One row per asset. Units are never added across assets."
+  spendByAsset: [WorkspaceAssetSpend!]! @derivedFrom(field: "workspace")
+
+  reservedCount: Int!
+  settledCount: Int!
+  "Deliveries with usable = true. This is successfulAcquisitions."
+  deliveredUsableCount: Int!
+  "Deliveries with usable = false. Delivery failures, NOT failed payments."
+  deliveryFailureCount: Int!
+  releasedCount: Int!
+  expiredCount: Int!
+  "Operations ever flagged SettlementUnknown, including those later reconciled."
+  settlementUnknownCount: Int!
+
+  "Reuse decisions whose referenced operation delivered usably. Intention, not proof of a completed task."
+  reuseDecisionCount: Int!
+  buyDecisionCount: Int!
+  waitDecisionCount: Int!
+  rejectDecisionCount: Int!
+  decisionCount: Int!
+}
+
+type AgentAuthorization @entity(immutable: false) {
+  "workspaceId-agentId"
+  id: ID!
+  workspace: Workspace!
+  agentId: Bytes!
+  authorized: Boolean!
+  policyVersion: BigInt!
+  updatedAt: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+"Per-asset settled spend. Integer smallest units. Decimals are not on chain; the client supplies them."
+type WorkspaceAssetSpend @entity(immutable: false) {
+  "workspaceId-asset"
+  id: ID!
+  workspace: Workspace!
+  asset: String!
+  "Sum over DISTINCT canonical transfers in this workspace. Excludes placeholder settlements."
+  settledAmount: BigInt!
+  settledPayments: Int!
+  "Sum over every PaymentSettled event, duplicates included. Kept for reconciliation, not for display."
+  rawSettledAmount: BigInt!
+  rawSettledPayments: Int!
+}
+
+"""
+One logical Hedera transfer, keyed by its canonical id.
+
+Hedera renders the same transaction id two ways — `0.0.X@sec.nanos` from an SDK receipt
+and `0.0.X-sec-nanos` from the mirror node. One real transfer has been recorded against
+two operations in two renderings, so counting raw strings overstates spend. This entity
+is the de-duplication ledger.
+"""
+type SettlementTransfer @entity(immutable: false) {
+  "Canonical transaction id: 0.0.X@seconds.nanos"
+  id: String!
+  "Every raw rendering observed for this transfer."
+  rawTransactionIds: [String!]!
+  "How many PaymentSettled events carried this transfer. Greater than 1 means a duplicate record."
+  occurrences: Int!
+  "Distinct workspaces that recorded this transfer."
+  workspaces: [Bytes!]!
+  "Operations that recorded this transfer as their settlement."
+  purchases: [Purchase!]! @derivedFrom(field: "settlement")
+  amount: BigInt!
+  asset: String!
+  "True for seeded ids such as SEED-PLACEHOLDER-*. No money moved; never counted as spend."
+  isPlaceholder: Boolean!
+  firstSeenAt: BigInt!
+  firstSeenAtBlock: BigInt!
+}
+
+type Purchase @entity(immutable: false) {
+  "operationId — keccak256(utf8(label)). De-duplication is structural: a replayed log updates this row."
+  id: Bytes!
+  workspace: Workspace!
+  purchaseKey: Bytes!
+  agentId: Bytes!
+
+  amount: BigInt!
+  "Hedera token id. '0.0.0' is HBAR."
+  asset: String!
+  payTo: String!
+  "Provider endpoint bound at reservation. Recorded on chain; not guaranteed reachable."
+  resource: String!
+  expiresAt: BigInt!
+  policyVersion: BigInt!
+
+  status: OperationStatus!
+
+  paymentPendingAt: BigInt
+  "Set when SettlementUnknownFlagged fires and NEVER cleared, so 'was this ever uncertain?' stays answerable."
+  settlementUnknownAt: BigInt
+  "Transaction id exactly as emitted."
+  transactionId: String
+  settlement: SettlementTransfer
+  settledAt: BigInt
+
+  usable: Boolean
+  freshUntil: BigInt
+  "Null when the event carried an empty string."
+  resultRef: String
+  failureReason: String
+
+  "0 explicit, 1 expired, 2 reconciled-absent."
+  releaseReason: Int
+  releasedAt: BigInt
+
+  reservedAt: BigInt!
+  reservedAtBlock: BigInt!
+  reservedTxHash: Bytes!
+  lastUpdatedAt: BigInt!
+  lastUpdatedAtBlock: BigInt!
+
+  decisions: [Decision!]! @derivedFrom(field: "purchase")
+}
+
+enum OperationStatus {
+  RESERVED
+  PAYMENT_PENDING
+  SETTLEMENT_UNKNOWN
+  PAID
+  DELIVERED
+  DELIVERY_FAILED
+  RELEASED
+  EXPIRED
+}
+
+"""
+A recorded buy/reuse/wait/reject decision.
+
+`recordDecision` writes no contract state and has no guard, so the same decisionId can be
+re-emitted with a different payload. First write wins and `reEmissionCount` makes any
+later contradictory emission visible rather than silently overwriting history.
+
+Rationale — chosen, rejected, reason — is not on chain. It lives in the HCS note at
+`hcsSequenceNumber`, and the client verifies that note by re-hashing its identifiers.
+"""
+type Decision @entity(immutable: false) {
+  "decisionId"
+  id: Bytes!
+  workspace: Workspace!
+  agentId: Bytes!
+  decisionType: DecisionType!
+  "Null when the event carried the zero operationId, or when that operation is not indexed."
+  purchase: Purchase
+  "Raw operationId as emitted, including zero."
+  operationId: Bytes!
+  "Null when the event carried an empty string — decisions predating HCS do."
+  hcsSequenceNumber: String
+  "True when an HCS sequence number is linked, so rationale can be fetched and verified."
+  rationaleAvailable: Boolean!
+
+  recordedAt: BigInt!
+  recordedAtBlock: BigInt!
+  logIndex: BigInt!
+  txHash: Bytes!
+  "Additional emissions of this decisionId after the first. Greater than 0 needs review."
+  reEmissionCount: Int!
+}
+
+enum DecisionType {
+  BUY
+  REUSE
+  WAIT
+  REJECT
+}

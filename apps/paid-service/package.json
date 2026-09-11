@@ -7,6 +7,10 @@
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
     "test": "tsx --test tests/*.test.ts",
-    "supported": "tsx src/scripts/check-facilitator.ts"
+    "supported": "tsx src/scripts/check-facilitator.ts",
+    "gateway:check": "tsx src/scripts/gateway-check.ts"
+  },
+  "dependencies": {
+    "@common/graph-client": "*"
   }
 }
