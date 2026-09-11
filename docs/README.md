@@ -6,6 +6,7 @@ Read `../README.md` and `../CONTRIBUTING.md` first, then the document for your w
 
 | Document | What it covers |
 | --- | --- |
+| [REMAINING_WORK.md](REMAINING_WORK.md) | **What is left, by owner, and the critical path.** Start here |
 | [NEW_ARCHITECTURE.md](NEW_ARCHITECTURE.md) | **Read this first.** The Graph becomes the paid resource. Why, what changed, what did not |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Whole-system draft and trust boundaries. Superseded for the payment layer, and for the read layer by the file above |
 | [BUILD_PLAN.md](BUILD_PLAN.md) | Phases, gates and the MVP checklist |
