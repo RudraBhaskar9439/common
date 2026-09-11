@@ -1,6 +1,6 @@
 # What is left
 
-**As of 2026-09-12**, branch `workstream/aditya-graph`, 9 commits ahead of `main`.
+**As of 2026-09-12**, branch `workstream/aditya-graph`, 11 commits ahead of `main`.
 Written by Aditya. Context: `NEW_ARCHITECTURE.md`. Evidence: `workstreams/aditya-evidence.md`.
 
 Status values: **DONE** means verified with evidence linked. **TODO** means not started or
@@ -33,14 +33,15 @@ finish"* is unproven. Until it runs once, we do not know what breaks.
 
 **Do this before polish, before the video, before anything optional.**
 
-| Step | Owner |
-| --- | --- |
-| Host `paid-service` publicly, update `RESOURCE_URL` | Kavish |
-| Implement `result-store` (put/get with workspace isolation) | Rudra |
-| Decide where `capabilities` live, and wire the check | Rudra |
-| Point the orchestrator at live adapters instead of mocks | Rudra |
-| Run one full operation with a block-scoped `purchaseKey` | Kavish + Rudra |
-| Verify the indexed purchase appears and is reusable | Aditya |
+| Step | Owner | Status |
+| --- | --- | --- |
+| Host `paid-service` publicly, update `RESOURCE_URL` | Kavish | TODO |
+| Implement `result-store` (put/get with workspace isolation) | Rudra | TODO |
+| ~~Decide where `capabilities` live~~ | — | **RESOLVED** — derived from the payload, §2.1 |
+| Point the orchestrator at live adapters instead of mocks | Rudra | TODO |
+| Agent produces a deliverable from the purchased data | Rudra | TODO |
+| Run one full operation with a block-scoped `purchaseKey` | Kavish + Rudra | TODO |
+| Verify the indexed purchase appears and is reusable | Aditya | waiting |
 
 ---
 
@@ -57,13 +58,36 @@ finish"* is unproven. Until it runs once, we do not know what breaks.
 | **HCS rationale verified live** | 8/8 identifiers re-hash to the indexed `bytes32`, against the real topic |
 | **Live Graph gateway** | 11/11 checks, real Uniswap V3 mainnet data, byte-identical at a pinned block |
 | **MCP server, 13 unit + 11 live** | real stdio handshake, 5 read-only tools, rationale verified through the full chain |
+| **Capabilities derived from the payload** | `assessDelivery` inspects the purchased bytes. Caught two false claims in our own datasets — see §2.1 |
 
 ```
-npm run check:all   ->  10 + 16 + 23 + 13 + 17 = 79 tests, 0 failures
+npm run check:all   ->  10 + 18 + 36 + 13 + 17 = 94 tests, 0 failures
 subgraph            ->  19 matchstick tests
-gateway:check       ->  11/11 live
+gateway:check       ->  11/11 live, both datasets
 graph-mcp live      ->  11/11 over stdio
 ```
+
+### 2.1 Two false capability claims, found by deriving instead of asserting
+
+"Avoid a dataset whose recorded outcome says it lacks a capability" is theatre if
+capabilities are a list the seller writes. Deriving them from the delivered bytes caught
+two of our own:
+
+- **`daily-transfers` advertised `historical-data` and contained none.** `poolDayDatas`
+  ordered by `date` returns the most recent day across *thirty different pools* — 30 rows,
+  one date. Verified directly: `distinct dates: 1 | distinct pools: 30`. Filtered to a
+  single pool, the 30-day series is real.
+- **`pool-liquidity` was named `token-holders` and advertised `holder-distribution`**,
+  which Uniswap pool data has never contained. Both inherited from the synthetic version.
+
+Both now overclaim nothing. The paid response reports observed capabilities with evidence,
+alongside the seller's advertised list, so the two can be compared.
+
+**The distinction this turns on:** delivery usability is objective and buyer-independent —
+did well-formed, non-empty data arrive — and that is what `recordDelivery` carries.
+Suitability is per-buyer, checked against the observed list. Marking a delivery unusable
+because one buyer wanted a missing field would hide a good result from every later agent
+that wanted something else.
 
 ## 3. DONE — the money layer (Kavish)
 
@@ -92,10 +116,10 @@ Optional, if time: a workspace settling in two assets, and a `DecisionRecorded` 
 
 | # | Task | Why it matters |
 | --- | --- | --- |
-| 5.1 | **Decide where `capabilities` live** | **Blocking the reuse gate.** `DeliveryRecorded` emits no capability field, so a Graph-backed reader returns `[]` and `findReusablePurchase` rejects every candidate. Options in `workstreams/aditya.md` §5 P1; the recommended one needs no contract change |
+| 5.1 | ~~Decide where `capabilities` live~~ | **RESOLVED.** No interface decision left: capabilities are derived from the payload by `assessDelivery` in `@common/graph-client` and belong with the stored result. Call it in the agent and pass the outcome to `recordDelivery` |
 | 5.2 | **Implement `packages/result-store`** | Currently throws. Nothing can store or retrieve a purchased result |
 | 5.3 | **Wire the orchestrator to live adapters** | `demo.ts` still imports `@common/mocks` |
-| 5.4 | **Make an agent do something with the data** | The Graph track requires *"meaningful work… not just printing a raw query result."* Buy-vs-reuse reasoning alone is reasoning over *purchase metadata*; an agent should produce a deliverable from the queried data |
+| 5.4 | **Make an agent produce a deliverable from the data** | The Graph track requires *"meaningful work… not just printing a raw query result."* Payload inspection (§2.1) is now real work on the data, but an agent should still produce an answer a person would want — e.g. a capital-efficiency ranking computed from the purchased bytes |
 | 5.5 | Review the shared-interface proposals in `workstreams/aditya.md` §5 (P1–P7) and record acceptance in `DECISIONS.md` | Interfaces are still a Phase 0 draft |
 | 5.6 | Note two root changes made by Aditya | `README.md` link list, and `package.json` gained `test:modules` / `check:all` — module tests existed but no single command ran them, so a passing `check` said nothing about 69 of them |
 | 5.7 | Coordinate the lockfile | `graph-client` added `ethers`; `graph-mcp` added `@modelcontextprotocol/sdk` + `zod`, ~1000 lines |
@@ -110,9 +134,11 @@ access on read.
 
 | # | Task | Status |
 | --- | --- | --- |
-| 6.1 | Verify the indexed purchase after the first live end-to-end run | Waiting on §1 |
-| 6.2 | Publish the memory subgraph to a public endpoint | Optional. Goldsky hosts Hedera; same artifact, one CLI command. Removes `localhost` from the demo |
-| 6.3 | Phase 5 handoff docs | Largely done in the module READMEs and `SKILL.md` |
+| 6.1 | ~~Capability derivation and payload validation~~ | **DONE.** §2.1 |
+| 6.2 | Verify the indexed purchase after the first live end-to-end run | Waiting on §1 |
+| 6.3 | Multi-query aggregation, so the price reflects real seller cost | Optional but recommended — it is what makes *"why would anyone pay for public data?"* answer itself. See §10 |
+| 6.4 | Publish the memory subgraph to a public endpoint | Optional. Goldsky hosts Hedera; same artifact, one CLI command. Removes `localhost` from the demo |
+| 6.5 | Phase 5 handoff docs | Largely done in the module READMEs and `SKILL.md` |
 
 ## 7. TODO — team / submission
 
@@ -168,3 +194,25 @@ integration.
   finished its task after choosing to reuse.
 - **`deniedRequests` is unindexable** — a denial reverts and emits no logs, and trace
   methods are unimplemented on the Hedera relay.
+
+---
+
+## 10. Why would anyone pay for public data?
+
+Worth having an answer ready, because a judge will ask.
+
+**They are not paying for the bytes, they are paying for metered access without a
+subscription.** Graph queries cost money beyond 100,000/month. An agent holds no credit
+card, no Graph account and no API key; the service holds one. Both sponsors describe
+exactly this — Hedera: *"paying for it without an API key or a subscription in sight"*;
+The Graph: *"let your agent pay per query autonomously with x402"*.
+
+And Common's value does not depend on the resource being expensive. It depends on it being
+*paid* and *repeatable*: two agents duplicating a cheap query still waste budget and quota,
+and the contract's exactly-one-purchase guarantee matters identically.
+
+**Where it is thin, and the fix.** Using a public subgraph invites *"why not query it
+yourself?"*, and one query has near-zero marginal cost. §6.3 fixes that: sell a derived
+answer that costs the seller real quota — a ranking across fifty pools burns fifty pinned
+queries. Then the price reflects incurred cost, reuse saves something measurable, and the
+Phase 4 "avoided purchase cost" metric has real numbers instead of an invented figure.
