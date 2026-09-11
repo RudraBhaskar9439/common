@@ -23,8 +23,6 @@ export interface Dataset {
   capabilities: readonly string[];
   /** Seconds a delivered copy stays fresh. Drives Outcome.freshUntil downstream. */
   freshnessSeconds: number;
-  /** Subgraph to buy from. A gateway URL may carry an API key; never echo it downstream. */
-  endpoint: string;
   /** GraphQL document. Must accept `$block: Int!` and use `block: { number: $block }`. */
   document: string;
   /** Async because it performs a live, block-pinned query. `fetchImpl` is for tests. */
@@ -34,27 +32,39 @@ export interface Dataset {
 /**
  * Which Subgraph we sell from, and on which chain.
  *
+ * Read LAZILY, not at module load. ES module imports are evaluated before the importing
+ * script's body, so a top-level `process.env` read happens before `loadEnvFileIfPresent()`
+ * has run and silently sees an unset key. That failed as "api key: MISSING" with a
+ * correctly populated .env sitting right there.
+ *
  * Configurable because the pinned block must be valid for the chain the Subgraph indexes:
  * an Ethereum mainnet block number is meaningless against an Arbitrum deployment, and the
- * gateway answers that with an unhelpful error. `npm run gateway:check` validates the
- * configured subgraph and block together before anything is offered for sale.
+ * gateway reports that unhelpfully. `npm run gateway:check` validates the configured
+ * subgraph and block together before anything is offered for sale.
  *
  * Default: Uniswap V3 on Ethereum mainnet, on The Graph's decentralized network.
  */
-const SUBGRAPH_ID = process.env['GRAPH_SUBGRAPH_ID'] ?? 'EN9rjKtzNitTEb5hgt8bmiyzzhwBpJrJaRihkg8Me8Rr';
-const GATEWAY_BASE = (process.env['GRAPH_GATEWAY_URL'] ?? 'https://gateway.thegraph.com/api/subgraphs/id').replace(/\/$/, '');
+const DEFAULT_SUBGRAPH_ID = '5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV';
+const DEFAULT_GATEWAY_BASE = 'https://gateway.thegraph.com/api/subgraphs/id';
 
-export const GATEWAY = `${GATEWAY_BASE}/${SUBGRAPH_ID}`;
+export function gatewayEndpoint(): string {
+  const base = (process.env['GRAPH_GATEWAY_URL'] ?? DEFAULT_GATEWAY_BASE).replace(/\/$/, '');
+  const id = process.env['GRAPH_SUBGRAPH_ID'] ?? DEFAULT_SUBGRAPH_ID;
+  return `${base}/${id}`;
+}
 
 /**
  * The API key travels in an Authorization header, never in the URL. The gateway also
- * accepts it as a path segment; that form leaks the key into logs and `resource` strings,
+ * accepts it as a path segment; that form leaks the key into logs and into `resource`,
  * and `resource` is written to the chain.
  */
-const API_KEY = process.env['GRAPH_API_KEY'];
+function apiKey(): string | undefined {
+  const key = process.env['GRAPH_API_KEY'];
+  return key && key.length > 0 ? key : undefined;
+}
 
 export function gatewayConfigured(): boolean {
-  return typeof API_KEY === 'string' && API_KEY.length > 0;
+  return apiKey() !== undefined;
 }
 
 /** Shared shape so a dataset definition is a document plus metadata, nothing more. */
@@ -70,16 +80,16 @@ function pinned(
     description,
     capabilities,
     freshnessSeconds,
-    endpoint: GATEWAY,
     document,
     async build(blockNumber: number, options?: { fetchImpl?: typeof fetch }) {
       const spec: Parameters<typeof fetchPinnedGraphData>[0] = {
-        endpoint: GATEWAY,
+        endpoint: gatewayEndpoint(),
         name: id,
         document,
         blockNumber,
       };
-      if (API_KEY) spec.apiKey = API_KEY;
+      const key = apiKey();
+      if (key) spec.apiKey = key;
       return fetchPinnedGraphData(spec, options?.fetchImpl ? { fetchImpl: options.fetchImpl } : {});
     },
   };
@@ -103,16 +113,19 @@ export const DATASETS: Record<string, Dataset> = {
   ),
   'token-holders': pinned(
     'token-holders',
-    'Top liquidity pools by value locked, at a pinned block.',
+    'Busiest liquidity pools by lifetime volume, at a pinned block.',
     ['holder-distribution', 'point-in-time'],
     3_600,
+    // Ordered by volume, not TVL. Ordering by totalValueLockedUSD surfaces tokens whose
+    // derived price is broken in the Uniswap subgraph — the top result claimed $1.1
+    // trillion locked. Volume is the robust ranking and the data is no less real.
     `query TopPools($block: Int!) {
        pools(
          block: { number: $block }
          first: 10
-         orderBy: totalValueLockedUSD
+         orderBy: volumeUSD
          orderDirection: desc
-       ) { id totalValueLockedUSD token0 { symbol } token1 { symbol } }
+       ) { id volumeUSD totalValueLockedUSD txCount token0 { symbol } token1 { symbol } }
      }`,
   ),
 };

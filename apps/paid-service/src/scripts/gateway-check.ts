@@ -15,7 +15,7 @@
  *   7. a block beyond the head is refused rather than silently answered
  */
 import { loadEnvFileIfPresent } from '../config.js';
-import { DATASETS, GATEWAY, gatewayConfigured } from '../providers/datasets.js';
+import { DATASETS, gatewayEndpoint, gatewayConfigured } from '../providers/datasets.js';
 
 loadEnvFileIfPresent();
 
@@ -35,14 +35,14 @@ async function gql(document: string, variables: Record<string, unknown> = {}): P
 }> {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (apiKey) headers['authorization'] = `Bearer ${apiKey}`;
-  const response = await fetch(GATEWAY, {
+  const response = await fetch(gatewayEndpoint(), {
     method: 'POST', headers, body: JSON.stringify({ query: document, variables }),
   });
   const body = (await response.json()) as { data?: Record<string, unknown>; errors?: { message: string }[] };
   return { ...body, status: response.status };
 }
 
-console.log(`\nCOMMON — Graph gateway check (read-only)\n\n  endpoint: ${GATEWAY}`);
+console.log(`\nCOMMON — Graph gateway check (read-only)\n\n  endpoint: ${gatewayEndpoint()}`);
 // Never print the key, not even a prefix.
 console.log(`  api key : ${gatewayConfigured() ? 'configured' : 'MISSING'}\n`);
 
