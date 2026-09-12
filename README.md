@@ -4,6 +4,12 @@ Shared spending memory for agents choosing open models. Buy one bounded browser 
 
 **Verified on Hedera testnet:** one 0.5 HBAR x402 evaluation, ten real model/task executions, one subsequent report reuse without another payment, and three confirmed HCS notes linked to contract events. Deployment and verification used an observed 2.81652147 testnet HBAR against a 5 HBAR allowance. The local dashboard also supports evaluation without payment. Graph is deferred. [Live evidence](docs/evidence/live-evaluation-2026-09-12.json) · [Verification](docs/VERIFICATION.md) · [Runbook](docs/ENVIRONMENT.md).
 
+## Hosted demo
+
+The complete service is deployed on Google Cloud: [Common dashboard](https://common.34.71.68.115.sslip.io/) · [x402 provider](https://eval.34.71.68.115.sslip.io/). The dashboard requires operator login; credentials are kept outside Git. The provider runs both Qwen models and Chromium on the VM, independently of the development laptop. A fresh 0.5 testnet HBAR purchase, shared reuse, three HCS notes, artifact downloads and service restart persistence were verified. [Cloud evidence](docs/evidence/cloud-deployment-2026-09-12.json) · [Hosting runbook](infra/deploy/README.md).
+
+The VM automatically stops after three days (approximately September 15, 23:43 IST). Persistent disk remains. The current workspace has 0.5 testnet HBAR available for one additional fresh evaluation; reuse needs no further purchase.
+
 ## Run locally — no paid services
 
 Use Node 24 LTS, npm and [Ollama](https://ollama.com/). The tested development machine is an Apple M5 with 16 GiB RAM. Model downloads need several GB; inference runs on your computer.
@@ -49,7 +55,7 @@ Dashboard / two agent clients → orchestrator → shared report discovery
 
 A report can be reused only within the workspace, for the exact versioned configuration, while fresh, intact and successfully delivered. Reuse counters increment after retrieval and validation. SQLite supports discovery and local coordination; the contract authorizes real spending. The contract is an accounting ledger, **not a vault**: the operator holds the treasury key. Unknown settlement keeps the reservation claimed; recovery checks the original transaction without submitting a replacement payment. Delivery and payment are distinct outcomes.
 
-The application is a local, single-operator demo bound to loopback, with one worker per database. It is not a hosted multi-tenant service. Set `COMMON_READ_ONLY=yes` to inspect existing evidence without enabling execution or transaction retries. The verified evaluation has its own receipt; historical dataset receipts are separate. See [testnet setup and recovery](docs/ENVIRONMENT.md).
+The application is a single-operator demo with one worker per database. The hosted deployment uses authenticated HTTPS through Caddy; application and model processes remain bound to loopback. It is not a multi-tenant service. Set `COMMON_READ_ONLY=yes` to inspect existing evidence without enabling execution or transaction retries. The verified evaluation has its own receipt; historical dataset receipts are separate. See [testnet setup and recovery](docs/ENVIRONMENT.md).
 
 ## Find the code
 
@@ -58,4 +64,4 @@ The application is a local, single-operator demo bound to loopback, with one wor
 - [Hedera adapter](packages/hedera-adapter/README.md), [paid service](apps/paid-service/README.md), [contracts](contracts/README.md)
 - [Demo script and submission work](docs/DEMO.md), [phase plan](docs/BUILD_PLAN.md)
 
-Rudra authorized tested phase commits directly on `main`. The repository remains private. Public source, licensing, hosted access and final submission require a separate release decision.
+Rudra authorized tested phase commits directly on `main`. The repository remains private. Hosted access was subsequently authorized. Public source, licensing and final submission still require a separate release decision.

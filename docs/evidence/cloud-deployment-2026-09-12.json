@@ -1,0 +1,233 @@
+{
+  "verifiedAt": "2026-09-12T18:29:17.636Z",
+  "projectId": "project-c0f0f832-e02b-4eac-ae2",
+  "vm": {
+    "creationTimestamp": "2026-09-12T11:13:01.285-07:00",
+    "machineType": "https://www.googleapis.com/compute/v1/projects/project-c0f0f832-e02b-4eac-ae2/zones/us-central1-a/machineTypes/n2-standard-8",
+    "name": "common-eval",
+    "networkInterfaces": [
+      {
+        "accessConfigs": [
+          {
+            "natIP": "34.71.68.115"
+          }
+        ]
+      }
+    ],
+    "scheduling": {
+      "automaticRestart": false,
+      "instanceTerminationAction": "STOP",
+      "maxRunDuration": {
+        "nanos": 0,
+        "seconds": "259200"
+      },
+      "onHostMaintenance": "TERMINATE",
+      "preemptible": false,
+      "provisioningModel": "STANDARD"
+    },
+    "status": "RUNNING"
+  },
+  "sourceCommit": "c7b4604",
+  "appUrl": "https://common.34.71.68.115.sslip.io",
+  "providerUrl": "https://eval.34.71.68.115.sslip.io",
+  "access": "Operator Basic authentication for dashboard; provider admission key for job preparation; per-job tokens for reports.",
+  "workspaceId": "common-cloud-demo",
+  "contractAddress": "0x94FFc923123107EDB3aCAa3C9ba19cc09CF681fe",
+  "hcsTopicId": "0.0.10465595",
+  "operationId": "34050d43-dda1-44a4-a445-061867bcbde9",
+  "receipt": {
+    "operationId": "34050d43-dda1-44a4-a445-061867bcbde9",
+    "transactionId": "0.0.7162784@1789237521.029323562",
+    "amount": {
+      "amount": "50000000",
+      "tokenId": "0.0.0",
+      "decimals": 8
+    }
+  },
+  "stats": {
+    "workspaceId": "common-cloud-demo",
+    "successfulReuses": 1,
+    "successfulAcquisitions": 1,
+    "failedRequests": 0,
+    "deniedRequests": 0,
+    "purchaseSpend": {
+      "amount": "50000000",
+      "tokenId": "0.0.0",
+      "decimals": 8
+    }
+  },
+  "reuseRate": 0.5,
+  "modelSummary": [
+    {
+      "modelId": "qwen3:1.7b",
+      "revision": "sha256:8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
+      "quantization": "Q4_K_M",
+      "passed": 2,
+      "attempted": 5,
+      "infrastructureErrors": 0,
+      "passRate": 0.4,
+      "durationMs": 43268,
+      "inputTokens": 7874,
+      "outputTokens": 358
+    },
+    {
+      "modelId": "qwen3:4b",
+      "revision": "sha256:359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+      "quantization": "Q4_K_M",
+      "passed": 5,
+      "attempted": 5,
+      "infrastructureErrors": 0,
+      "passRate": 1,
+      "durationMs": 58074,
+      "inputTokens": 4381,
+      "outputTokens": 247
+    }
+  ],
+  "paidMeasurementDurationMs": 101342,
+  "unpaidGate": {
+    "checkedAt": "2026-09-12T18:23:55.125Z",
+    "unauthorizedPreparation": 403,
+    "authorizedPreparation": 201,
+    "unpaidExecution": 402,
+    "paymentRequiredHeader": true,
+    "resource": "https://eval.34.71.68.115.sslip.io/jobs/5a5168ae-ecf8-447d-875a-e5ca824ec3e6/execute",
+    "network": "hedera:testnet",
+    "amount": "50000000",
+    "payTo": "0.0.10463575",
+    "models": [
+      {
+        "id": "qwen3:1.7b",
+        "revision": "sha256:8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7"
+      },
+      {
+        "id": "qwen3:4b",
+        "revision": "sha256:359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7"
+      }
+    ]
+  },
+  "restartPreservedReport": true,
+  "restartPreservedCounters": true,
+  "traceStatus": 200,
+  "mirrorPayment": {
+    "transactionId": "0.0.7162784-1789237521-029323562",
+    "result": "SUCCESS",
+    "consensusTimestamp": "1789237538.178319104",
+    "amountTinybar": "50000000",
+    "payTo": "0.0.10463575"
+  },
+  "notes": [
+    {
+      "sequence": 7,
+      "consensusTimestamp": "1789237650.165578102",
+      "note": {
+        "schemaVersion": 1,
+        "decisionId": "cloud-paid-b-v1-reuse",
+        "workspaceId": "common-cloud-demo",
+        "agentId": "agent-b",
+        "type": "reuse",
+        "chosen": "Existing compatible evaluation report",
+        "rejected": "Run the same evaluation again",
+        "reason": "Retrieved a complete, fresh report for the exact model, application and task configuration.",
+        "createdAt": "2026-09-12T18:27:28.459Z",
+        "operationId": "34050d43-dda1-44a4-a445-061867bcbde9",
+        "result": null,
+        "disclaimer": "Agent-stated reasoning. The consensus timestamp attests when this was written, not that it is true."
+      }
+    },
+    {
+      "sequence": 8,
+      "consensusTimestamp": "1789237656.837900104",
+      "note": {
+        "schemaVersion": 1,
+        "decisionId": "cloud-paid-b-v1-wait",
+        "workspaceId": "common-cloud-demo",
+        "agentId": "agent-b",
+        "type": "wait",
+        "chosen": "Wait for current evaluation",
+        "rejected": "Run the same evaluation again",
+        "reason": "An evaluation already owns this exact configuration. Check its result before starting another run.",
+        "createdAt": "2026-09-12T18:27:28.455Z",
+        "operationId": "34050d43-dda1-44a4-a445-061867bcbde9",
+        "result": null,
+        "disclaimer": "Agent-stated reasoning. The consensus timestamp attests when this was written, not that it is true."
+      }
+    },
+    {
+      "sequence": 6,
+      "consensusTimestamp": "1789237525.152786387",
+      "note": {
+        "schemaVersion": 1,
+        "decisionId": "cloud-paid-a-v1-buy",
+        "workspaceId": "common-cloud-demo",
+        "agentId": "agent-a",
+        "type": "buy",
+        "chosen": "Run bounded model evaluation",
+        "rejected": "Use an unavailable or incompatible result",
+        "reason": "No existing evaluation owns this configuration. Acquire one bounded run.",
+        "createdAt": "2026-09-12T18:25:22.571Z",
+        "operationId": "34050d43-dda1-44a4-a445-061867bcbde9",
+        "result": null,
+        "disclaimer": "Agent-stated reasoning. The consensus timestamp attests when this was written, not that it is true."
+      }
+    }
+  ],
+  "contractOperationStatus": "Delivered",
+  "budgetTinybar": "100000000",
+  "spentTinybar": "50000000",
+  "committedTinybar": "0",
+  "availableTinybar": "50000000",
+  "observedAccountDebitHBAR": "1.30266943",
+  "pendingDecisionNotes": 0,
+  "serviceReportCount": 1,
+  "decisionReceipts": [
+    {
+      "decisionId": "cloud-paid-a-v1-buy",
+      "hcsStatus": "confirmed",
+      "eventStatus": "confirmed",
+      "eventTransactionId": "0x467d7599f976dd349865442439dda8c9010899193e0f6e9459d2569f455e02bc",
+      "hcsSequenceNumber": "6"
+    },
+    {
+      "decisionId": "cloud-paid-b-v1-reuse",
+      "hcsStatus": "confirmed",
+      "eventStatus": "confirmed",
+      "eventTransactionId": "0x3b5c34b488477feb6ed1015bed67118e5aaf15846974cf69595c370a1e60c16e",
+      "hcsSequenceNumber": "7"
+    },
+    {
+      "decisionId": "cloud-paid-b-v1-wait",
+      "hcsStatus": "confirmed",
+      "eventStatus": "confirmed",
+      "eventTransactionId": "0x321ded31c7250989e31ccb1afe538981e3605891adb6a948639e3a24d1338be7",
+      "hcsSequenceNumber": "8"
+    }
+  ],
+  "testCount": 128,
+  "limitations": [
+    "Two models, five controlled tasks, one repetition; observations are not general reliability guarantees.",
+    "Single CPU VM and single worker per database; not a multi-tenant production service.",
+    "Automatic stop after three days; persistent disk remains and incurs storage charges.",
+    "One additional 0.5 testnet HBAR purchase remains in the workspace allocation; reports expire after 24 hours.",
+    "GitHub repository remains private."
+  ],
+  "verifiedContractEvents": [
+    {
+      "decisionId": "cloud-paid-a-v1-buy",
+      "transactionHash": "0x467d7599f976dd349865442439dda8c9010899193e0f6e9459d2569f455e02bc",
+      "blockNumber": 40433323,
+      "hcsSequenceNumber": "6"
+    },
+    {
+      "decisionId": "cloud-paid-b-v1-reuse",
+      "transactionHash": "0x3b5c34b488477feb6ed1015bed67118e5aaf15846974cf69595c370a1e60c16e",
+      "blockNumber": 40433381,
+      "hcsSequenceNumber": "7"
+    },
+    {
+      "decisionId": "cloud-paid-b-v1-wait",
+      "transactionHash": "0x321ded31c7250989e31ccb1afe538981e3605891adb6a948639e3a24d1338be7",
+      "blockNumber": 40433384,
+      "hcsSequenceNumber": "8"
+    }
+  ]
+}

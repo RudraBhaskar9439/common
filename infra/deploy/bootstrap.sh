@@ -16,6 +16,7 @@ curl -fsSL https://ollama.com/install.sh -o ollama-install.sh
 sh ollama-install.sh
 id common >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/common --shell /usr/sbin/nologin common
 id common-provider >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/common-provider --shell /usr/sbin/nologin common-provider
+chmod 755 /var/lib/common
 install -d -m 755 /opt/common
 install -d -o common -g common -m 700 /var/lib/common/app /var/lib/common/practice
 install -d -o common-provider -g common-provider -m 700 /var/lib/common/service

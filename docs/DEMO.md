@@ -20,3 +20,13 @@ Use a fresh ignored data directory for a clean local recording rather than delet
 - Remaining: public-source/license decision, recording/narration for submission, submission form and any hosted access requirement.
 
 Review the [official Hedera prize requirements](https://ethglobal.com/events/ethonline2026/prizes/hedera) before submission. Do not claim Graph integration, a second sponsor, hosted availability or live x402 evaluation evidence that has not been demonstrated. Historical dataset receipts are separate evidence.
+
+## Google Cloud deployment — verified 2026-09-12 UTC
+
+[Dashboard](https://common.34.71.68.115.sslip.io/) (operator login) and [paid service](https://eval.34.71.68.115.sslip.io/) run on the Google Cloud VM. One actual cloud evaluation purchased for 0.5 testnet HBAR served Agent A and Agent B: one acquisition, one reuse, one payment, three confirmed HCS notes (sequences 6–8), and no pending notes. Contract status is Delivered. The paid run measured 101.342 seconds across ten model/task executions: Qwen3 1.7B passed 2/5, Qwen3 4B passed 5/5, with zero infrastructure errors. This is one observation on this VM.
+
+All 128 tests passed. HTTPS, unauthorized-access refusal, unpaid x402 402, screenshot/trace delivery, and report/counter persistence after restarting both services were checked. The total observed account debit for cloud workspace setup, payment, lifecycle events and HCS was 1.30266943 testnet HBAR. Another 0.5 HBAR remains in the purchase allocation. Reuse does not submit another purchase; fresh runs consume that remaining allocation.
+
+Open the dashboard and sign in with the locally stored operator credentials. Inspect the existing report, then use “Ask Agent B to reuse” to demonstrate memory. “Run fresh measurement” spends the remaining evaluation allowance. Reports have a 24-hour freshness window.
+
+The VM stops automatically approximately September 15 at 23:43 IST; persistent disk storage remains. The external IP is ephemeral and may change after a stop/start, requiring hostname and environment updates. This is a bounded, single-worker hackathon deployment, not a production availability commitment. See [cloud evidence](evidence/cloud-deployment-2026-09-12.json) and the [deployment runbook](../infra/deploy/README.md).

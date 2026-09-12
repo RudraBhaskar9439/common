@@ -18,3 +18,12 @@ Every phase must record what ran, passed, and remains unverified. Payment tests 
 ## Live follow-through — passed 2026-09-12
 
 The former testnet blockers in Phases 1, 3, 4 and 7 are resolved for one real evaluation flow: current contract deployed and bytecode checked; 0.5 HBAR payment independently verified; report delivered; second agent reused without repayment; all three HCS notes linked. Total observed testnet debit 2.81652147 HBAR, below the authorized 5. Full suite: 126 tests. Dashboard is left in read-only review. Hosted/public release and submission remain separate. See [live evidence](evidence/live-evaluation-2026-09-12.json).
+
+## Google Cloud deployment follow-through
+
+- [x] Deploy complete CPU inference/browser/x402/application stack with HTTPS and separate service identities.
+- [x] Verify one paid cloud evaluation, shared reuse, HCS/event linkage, artifacts and restart persistence.
+- [x] Run 128 tests and push tested deployment phases directly to main.
+- [x] Bound VM runtime to three days and leave one additional 0.5 testnet HBAR purchase allocation.
+- [ ] User shares operator access with intended judges and completes submission materials.
+- [ ] User decides hosting duration beyond the three-day demo; disk cleanup or continued hosting must preserve needed evidence.

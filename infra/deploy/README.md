@@ -28,3 +28,15 @@ Provider adds `PUBLIC_SERVICE_URL=https://PROVIDER_HOST`, `COMMON_SERVICE_KEY` (
 `COMMON_MODE=hedera-testnet` and explicit testnet confirmation enable payments; `COMMON_READ_ONLY=yes` disables new work, startup recovery and HCS retries. The prepared workspace's contract budget bounds purchases.
 
 Use `systemctl status common-app common-provider ollama caddy` for health. Preserve `/var/lib/common/app` and `/var/lib/common/service` during releases. Never delete an uncertain operation to retry payment; reconcile the original identity.
+
+## Current deployment
+
+- Project: `project-c0f0f832-e02b-4eac-ae2`; instance: `common-eval`; zone: `us-central1-a`.
+- Machine: `n2-standard-8`, 8 vCPU / 32 GB RAM, 80 GB persistent disk.
+- App: https://common.34.71.68.115.sslip.io/; provider: https://eval.34.71.68.115.sslip.io/.
+- Runtime: Node 24.21.0, Ollama 0.34.0. Resolved model digests are in cloud evidence.
+- VM STOP is scheduled after three days, approximately September 15 at 23:43 IST. The external IP is ephemeral and can change after stop/start: update both hostnames, the environment URLs and Caddy if it changes.
+- Actual verification: one 0.5 testnet HBAR purchase, one reuse, three confirmed HCS-linked events, no pending notes, one persisted service report after service restarts. A second prepared job is the unpaid HTTP 402 probe and has never executed.
+- Remaining allocation: 0.5 testnet HBAR, enough for one fresh evaluation. Trial credits pay eligible cloud infrastructure costs, not Hedera transactions.
+
+Credentials are saved only in ignored `.common-data/cloud-deploy/access.txt` on the lead's computer and root-owned server environment files. Do not commit them or put passwords in URLs. The signed-in browser will send Basic credentials on subsequent API requests; session cookies alone are insufficient.
