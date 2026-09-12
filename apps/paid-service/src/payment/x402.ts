@@ -116,6 +116,8 @@ export class FacilitatorClient {
   private async post<T>(path: string, body: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
+      signal: AbortSignal.timeout(30000),
+      redirect: 'error',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });

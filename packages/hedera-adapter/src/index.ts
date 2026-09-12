@@ -26,6 +26,7 @@ export {
 export { reconcileSettlement, type ReconciliationResult } from './reconciliation/mirror-node.js';
 export { executePaidRequest, type PaidRequestOutcome } from './payments/x402-client.js';
 export { buildSignedTransfer } from './payments/transfer.js';
+export { signedTransferIdentity, type TransferIdentity } from './payments/transfer.js';
 export { loadAdapterConfig, loadEnvFileIfPresent, type HederaAdapterConfig } from './config.js';
 
 import { createHederaSpendingAdapter, type HederaSpendingAdapter, type ResourceResolver, type OperationRegistry } from './adapter.js';

@@ -90,3 +90,14 @@ wrong; take it from `npm run supported`.
 - `src/providers/datasets.ts` — the paid resources
 - `src/scripts/check-facilitator.ts` — capability discovery
 - `tests/gate.test.ts`
+
+## Open-model evaluation service
+
+Run `npm run start:evaluations --workspace @common/paid-service` after setting seller, facilitator and local model configuration. The service binds to loopback by default and runs a single worker per database. Do not run multiple worker processes against the same service database.
+
+- POST /jobs: prepare a bounded immutable spec with workspaceId, operationId and a client-generated random accessToken. Repeated preparation needs the original token and terms.
+- GET /jobs/:id/execute: real x402 gate; payment creates a queued job. Repeated calls to an already-paid job return the receipt without settling again.
+- GET /jobs/:id and /jobs/:id/report: Bearer accessToken required; retrieve status or result without another payment. Keep this token off public contract/HCS records.
+- POST /jobs/:id/reconcile: same token required; check the persisted transaction identity and resume execution only if a matching successful transfer is observed.
+
+Payment submission is journaled before settlement. Unknown settlement never launches compute or submits a replacement payment. Paid jobs that stopped during computation are requeued on service restart, retaining their original receipt. Worker/report errors retain payment history. Local tests use labeled facilitator/runner doubles; fresh testnet verification remains pending credentials.

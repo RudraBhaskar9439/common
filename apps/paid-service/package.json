@@ -7,6 +7,20 @@
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
     "test": "tsx --test tests/*.test.ts",
-    "supported": "tsx src/scripts/check-facilitator.ts"
+    "supported": "tsx src/scripts/check-facilitator.ts",
+    "start:evaluations": "tsx src/jobs-server.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@common/interfaces": "*",
+    "@common/agent-tools": "*",
+    "@common/result-store": "*",
+    "@common/hedera-adapter": "*",
+    "@common/evaluation-runner": "*"
+  },
+  "devDependencies": {
+    "@common/mocks": "*"
   }
 }

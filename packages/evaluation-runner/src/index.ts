@@ -100,12 +100,17 @@ export function parseAction(content: string): BrowserAction {
   throw new Error('Unsupported browser action');
 }
 
+export function assertRunnableSpec(spec: EvaluationSpec): void {
+  validateEvaluationSpec(spec);
+  if (![spec.suiteVersion, spec.applicationVersion, spec.runnerVersion].every(v => v === '1') || spec.promptVersion !== '3' || spec.toolVersion !== '2') throw new Error('Unsupported suite/application/runner/prompt/tool version');
+  if (spec.models.some(m => !SUPPORTED_MODELS.includes(m.id as typeof SUPPORTED_MODELS[number]))) throw new Error('Unsupported model');
+}
+
 export function createEvaluationRunner(options: { artifactDir: string; client?: ModelClient; onProgress?: (task: TaskEvaluation) => void }): EvaluationRunner {
   const client = options.client ?? createOllamaClient();
   return {
     async run({ jobId, spec, signal }) {
-      validateEvaluationSpec(spec);
-      if (![spec.suiteVersion, spec.applicationVersion, spec.runnerVersion].every(v => v === '1') || spec.promptVersion !== '3' || spec.toolVersion !== '2') throw new Error('Unsupported suite/application/runner/prompt/tool version');
+      assertRunnableSpec(spec);
       await client.verify(spec.models);
       await mkdir(options.artifactDir, { recursive: true });
       const startedAt = new Date().toISOString();
