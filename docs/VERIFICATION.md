@@ -47,3 +47,7 @@ All 128 tests passed. HTTPS, unauthorized-access refusal, unpaid x402 402, scree
 Open the dashboard and sign in with the locally stored operator credentials. Inspect the existing report, then use “Ask Agent B to reuse” to demonstrate memory. “Run fresh measurement” spends the remaining evaluation allowance. Reports have a 24-hour freshness window.
 
 The VM stops automatically approximately September 15 at 23:43 IST; persistent disk storage remains. The external IP is ephemeral and may change after a stop/start, requiring hostname and environment updates. This is a bounded, single-worker hackathon deployment, not a production availability commitment. See [cloud evidence](evidence/cloud-deployment-2026-09-12.json) and the [deployment runbook](../infra/deploy/README.md).
+
+## 2026-09-13 — Browser sign-in regression
+
+The in-app browser rejected the HTTP Basic challenge with ERR_INVALID_AUTH_CREDENTIALS before rendering the frontend. Replaced browser challenges with a normal same-origin sign-in form and eight-hour signed HttpOnly session cookies, retaining protected routes, HTTPS/Origin checks and existing credentials. API tests cover wrong credentials, tampered sessions, cross-site login and login attempt limits. The Chromium test now signs in through the form before testing acquisition, reuse, download and mobile layout with labeled fixtures. No new live purchase is needed to verify this authentication repair.

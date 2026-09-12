@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +44,19 @@ export async function startApplication(options: { port?: number; dataDir?: strin
   const workflow = createEvaluationWorkflow({ database: db, workspaceId, executor });
   const specProvider = options.specProvider ?? defaultEvaluationSpec;
   const session = randomBytes(32).toString('hex');
+  const sessionLifetimeMs = 8 * 60 * 60 * 1000;
+  const signSession = (value: string) => createHmac('sha256', session).update(value).digest('hex');
+  function authenticatedCookie(cookie: string) {
+    const match = /^(\d{13})\.([a-f0-9]{32})\.([a-f0-9]{64})$/.exec(cookie);
+    if (!match || Number(match[1]) <= Date.now() || Number(match[1]) > Date.now() + sessionLifetimeMs) return false;
+    return timingSafeEqual(Buffer.from(match[3]!, 'hex'), Buffer.from(signSession(`${match[1]}.${match[2]}`), 'hex'));
+  }
+  function issueCookie(res: ServerResponse) {
+    const payload = `${Date.now() + sessionLifetimeMs}.${randomBytes(16).toString('hex')}`;
+    const value = authHash ? `${payload}.${signSession(payload)}` : session;
+    res.setHeader('set-cookie', `common_session=${value}; HttpOnly; SameSite=Strict; Path=/${publicOrigin ? '; Secure' : ''}; Max-Age=28800`);
+  }
+  let loginWindow = Date.now(); let loginAttempts = 0;
   let origin = '';
   const handler = async (req: IncomingMessage, res: ServerResponse) => {
     try {
@@ -53,23 +66,35 @@ export async function startApplication(options: { port?: number; dataDir?: strin
       if (!host || !allowedHosts.includes(host)) return json(res, 403, { error: 'Invalid host' });
       const requestOrigin = req.headers.origin;
       if (requestOrigin && !allowedOrigins.includes(requestOrigin)) return json(res, 403, { error: 'Cross-origin requests refused' });
-      if (authHash && !timingSafeEqual(authHash, createHash('sha256').update(req.headers.authorization ?? '').digest())) {
-        res.setHeader('www-authenticate', 'Basic realm="Common operator", charset="UTF-8"');
-        return json(res, 401, { error: 'Operator login required' });
-      }
       res.setHeader('x-content-type-options', 'nosniff'); res.setHeader('x-frame-options', 'DENY');
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
       const url = new URL(req.url ?? '/', origin); const path = url.pathname;
-      const assets: Record<string, { name: 'index.html' | 'app.js' | 'style.css'; type: string }> = {
-        '/': { name: 'index.html', type: 'text/html; charset=utf-8' }, '/app.js': { name: 'app.js', type: 'text/javascript' }, '/style.css': { name: 'style.css', type: 'text/css' },
+      const cookie = req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith('common_session='))?.slice('common_session='.length) ?? '';
+      const basicAuthenticated = Boolean(authHash && timingSafeEqual(authHash, createHash('sha256').update(req.headers.authorization ?? '').digest()));
+      const sessionAuthenticated = authHash ? authenticatedCookie(cookie) : cookie.length === session.length && timingSafeEqual(Buffer.from(cookie), Buffer.from(session));
+      if (path === '/auth/login' && req.method === 'POST' && authHash) {
+        if (!requestOrigin || !allowedOrigins.includes(requestOrigin) || !req.headers['content-type']?.startsWith('application/json')) return json(res, 403, { error: 'Sign in from the Common page' });
+        if (Date.now() - loginWindow >= 60000) { loginWindow = Date.now(); loginAttempts = 0; }
+        if (++loginAttempts > 20) { res.setHeader('retry-after', '60'); return json(res, 429, { error: 'Too many sign-in attempts. Try again in a minute.' }); }
+        const input = await body(req);
+        const provided = `Basic ${Buffer.from(`${input['username']}:${input['password']}`).toString('base64')}`;
+        if (!timingSafeEqual(authHash, createHash('sha256').update(provided).digest())) return json(res, 401, { error: 'Incorrect username or password' });
+        issueCookie(res); return json(res, 200, { signedIn: true });
+      }
+      const signedIn = !authHash || basicAuthenticated || sessionAuthenticated;
+      const assets: Record<string, { name: Parameters<typeof readWebAsset>[0]; type: string }> = {
+        '/': { name: signedIn ? 'index.html' : 'login.html', type: 'text/html; charset=utf-8' },
+        '/app.js': { name: 'app.js', type: 'text/javascript' }, '/style.css': { name: 'style.css', type: 'text/css' },
+        '/login.js': { name: 'login.js', type: 'text/javascript' }, '/login.css': { name: 'login.css', type: 'text/css' },
       };
+      const publicLoginAsset = ['/', '/login.js', '/login.css'].includes(path);
+      if (!signedIn && !publicLoginAsset) return json(res, 401, { error: 'Sign in to Common to continue' });
       const asset = assets[path];
       if (asset && req.method === 'GET') {
-        if (path === '/') res.setHeader('set-cookie', `common_session=${session}; HttpOnly; SameSite=Strict; Path=/${publicOrigin ? '; Secure' : ''}`);
+        if (path === '/' && signedIn && !sessionAuthenticated) issueCookie(res);
         res.writeHead(200, { 'content-type': asset.type, 'cache-control': 'no-store' }); res.end(await readWebAsset(asset.name)); return;
       }
-      const cookie = req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith('common_session='))?.slice('common_session='.length) ?? '';
-      if (cookie.length !== session.length || !timingSafeEqual(Buffer.from(cookie), Buffer.from(session))) return json(res, 401, { error: 'Open the local application to start a session' });
+      if (!sessionAuthenticated) return json(res, 401, { error: 'Open the application to start a session' });
       if (readOnly && req.method !== 'GET') return json(res, 403, { error: 'Read-only review: new evaluations and transaction retries are disabled' });
       if (path === '/api/state' && req.method === 'GET') {
         let spec: EvaluationSpec | undefined; let readinessError: string | undefined;

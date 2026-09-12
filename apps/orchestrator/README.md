@@ -34,4 +34,4 @@ The decision outbox survives restarts. Publishing is at least once: consumers mu
 
 ## Hosted access
 
-`COMMON_PUBLIC_ORIGIN` enables exact HTTPS origin validation and Secure cookies and requires `COMMON_OPERATOR_PASSWORD` (24+ characters). Every request requires Basic authentication with username `operator`; a session alone never bypasses it. The process still binds loopback behind Caddy. `COMMON_SERVICE_KEY` authenticates preparation to the provider. See [deployment](../../infra/deploy/README.md).
+`COMMON_PUBLIC_ORIGIN` enables exact HTTPS origin validation and Secure cookies and requires `COMMON_OPERATOR_PASSWORD` (24+ characters). The browser uses a normal sign-in form with username `operator`. Successful authentication issues an eight-hour HMAC-signed, HttpOnly session cookie; protected routes require this authenticated session. API clients may still supply Basic credentials to obtain a session, but no HTTP Basic challenge is emitted. Login attempts are bounded to 20 per minute per process. The process still binds loopback behind Caddy. `COMMON_SERVICE_KEY` authenticates preparation to the provider. See [deployment](../../infra/deploy/README.md).

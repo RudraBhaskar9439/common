@@ -12,7 +12,7 @@ test('browser acquisition, reuse, download and mobile layout with an explicitly 
   const directory = await mkdtemp(join(tmpdir(), 'common-browser-'));
   const spec = { ...fixtureEvaluationSpec, promptVersion: '3', toolVersion: '2' };
   let runs = 0;
-  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'browser-test', readOnly: false, specProvider: async () => spec,
+  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'browser-test', readOnly: false, operatorPassword: 'fixture-browser-password-not-a-secret', specProvider: async () => spec,
     executor: { mode: 'local', execute: async op => {
       runs++;
       return { report: { schemaVersion: 1, source: 'fixture', jobId: op.operationId, specHash: evaluationSpecHash(op.spec), spec: op.spec,
@@ -25,6 +25,13 @@ test('browser acquisition, reuse, download and mobile layout with an explicitly 
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
     await page.goto(app.origin);
+    await page.locator('#login-form').waitFor();
+    assert.equal((await page.request.get(`${app.origin}/api/state`)).status(), 401);
+    await page.locator('#password').fill('wrong');
+    await page.locator('#sign-in').click();
+    await page.getByText('Incorrect username or password').waitFor();
+    await page.locator('#password').fill('fixture-browser-password-not-a-secret');
+    await page.locator('#sign-in').click();
     await page.locator('#acquire:enabled').waitFor();
     await page.locator('#acquire').click();
     await page.waitForFunction(() => document.querySelector('#acquisitions')?.textContent === '1');

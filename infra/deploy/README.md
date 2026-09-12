@@ -4,7 +4,7 @@ Rudra authorized deployment to the supplied Google Cloud project using existing 
 
 ## Boundaries
 
-Caddy exposes separate application/provider HTTPS hostnames. Node and Ollama bind loopback. The hosted application requires HTTP Basic credentials (username `operator`), exact HTTPS origin validation, and Secure/HttpOnly/SameSite cookies. The random operator password grants configured compute and testnet spending access: share it only with intended reviewers.
+Caddy exposes separate application/provider HTTPS hostnames. Node and Ollama bind loopback. The hosted application has a normal sign-in page (username `operator`), exact HTTPS origin validation, and signed Secure/HttpOnly/SameSite session cookies that expire after eight hours or a process restart. The random operator password grants configured compute and testnet spending access: share it only with intended reviewers.
 
 The provider exposes `/`, `/health`, and `/catalogue`. `POST /jobs` requires `X-Common-Service-Key`. Executing the prepared URL still requires x402 payment; reports/artifacts require the original job Bearer token. A 256-job capacity bounds stored preparations. This is controlled admission, not an anonymous marketplace or a full rate-limiting system.
 
@@ -39,4 +39,4 @@ Use `systemctl status common-app common-provider ollama caddy` for health. Prese
 - Actual verification: one 0.5 testnet HBAR purchase, one reuse, three confirmed HCS-linked events, no pending notes, one persisted service report after service restarts. A second prepared job is the unpaid HTTP 402 probe and has never executed.
 - Remaining allocation: 0.5 testnet HBAR, enough for one fresh evaluation. Trial credits pay eligible cloud infrastructure costs, not Hedera transactions.
 
-Credentials are saved only in ignored `.common-data/cloud-deploy/access.txt` on the lead's computer and root-owned server environment files. Do not commit them or put passwords in URLs. The signed-in browser will send Basic credentials on subsequent API requests; session cookies alone are insufficient.
+Credentials are saved only in ignored `.common-data/cloud-deploy/access.txt` on the lead's computer and root-owned server environment files. Do not commit them or put passwords in URLs. The signed-in browser sends its authenticated session cookie on subsequent API requests. Direct API clients can still obtain a session with Basic credentials; browsers receive no HTTP Basic challenge.

@@ -3,6 +3,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;',
 let state, selectedSpec, selectedId, reportCacheKey, busy = false;
 async function api(path, options) {
   const response = await fetch(path, options);
+  if (response.status === 401) { window.location.replace('/'); throw new Error('Please sign in again'); }
   const body = await response.json();
   if (!response.ok) throw new Error(body.error || 'Request failed');
   return body;
