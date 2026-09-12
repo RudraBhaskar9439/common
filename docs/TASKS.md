@@ -14,3 +14,7 @@ Audited base: `938696f`. Baseline: 10 interface, 17 adapter, 13 paid-service and
 | 7 | Local launch ready; external verification pending | Local preflight passed for both models, Chromium and SQLite. Workspace setup tests passed idempotency and foreign-operator rejection (23 contract tests; 124 total with Phase 6 suite). Deployment/topic commands refuse missing transaction authorization. Current README, architecture, setup/recovery runbook and four-minute demo script written. Testnet credentials, fresh deployment/payment/HCS evidence, public release and submission remain external. |
 
 Every phase must record what ran, passed, and remains unverified. Payment tests with doubles do not prove Hedera settlement. A model failing a task is an evaluation outcome, not a broken harness.
+
+## Live follow-through — passed 2026-09-12
+
+The former testnet blockers in Phases 1, 3, 4 and 7 are resolved for one real evaluation flow: current contract deployed and bytecode checked; 0.5 HBAR payment independently verified; report delivered; second agent reused without repayment; all three HCS notes linked. Total observed testnet debit 2.81652147 HBAR, below the authorized 5. Full suite: 126 tests. Dashboard is left in read-only review. Hosted/public release and submission remain separate. See [live evidence](evidence/live-evaluation-2026-09-12.json).

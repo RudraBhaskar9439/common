@@ -1,6 +1,6 @@
 # paid-service
 
-**Current evaluation entrypoint:** `npm run service:evaluations` from the root. `POST /jobs` prepares a bounded evaluation; `GET /jobs/:id/execute` is x402-gated. Authenticated status/report/artifact routes and reconciliation recover an existing job without another charge. Job and receipt state persist in SQLite. The runner uses actual local Ollama models and controlled browser tasks. See [the current runbook](../../docs/ENVIRONMENT.md). The new live payment flow still needs testnet verification. Dataset instructions below are historical.
+**Current evaluation entrypoint:** `npm run service:evaluations` from the root. `POST /jobs` prepares a bounded evaluation; `GET /jobs/:id/execute` is x402-gated. Authenticated status/report/artifact routes and reconciliation recover an existing job without another charge. Job and receipt state persist in SQLite. The runner uses actual local Ollama models and controlled browser tasks. One real evaluation purchase and subsequent reuse are [verified on testnet](../../docs/evidence/live-evaluation-2026-09-12.json). See [the runbook](../../docs/ENVIRONMENT.md). Dataset instructions below are historical.
 
 **Owner:** Kavish
 

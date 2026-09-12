@@ -8,7 +8,7 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildNote, type DecisionNotePublisher, type PublishedNote } from '../src/hcs/decision-notes.js';
+import { buildNote, buildNoteTransaction, type DecisionNotePublisher, type PublishedNote } from '../src/hcs/decision-notes.js';
 import type { DecisionRecord } from '@common/interfaces';
 
 const record = (id: string): DecisionRecord => ({
@@ -69,6 +69,14 @@ test('a note carries the reasoning and an explicit truth disclaimer', () => {
   // A consensus timestamp attests when, not whether it is true. Say so in the record
   // itself, so the note cannot be quoted as proof of its own contents.
   assert.match(String(note['disclaimer']), /not that it is true/);
+});
+
+test('native note fees and chunks are bounded before signing; oversized notes are rejected', () => {
+  const transaction = buildNoteTransaction(record('bounded-note'));
+  assert.equal(transaction.maxTransactionFee?.toTinybars().toString(), '10000000');
+  assert.equal(transaction.maxChunks, 1);
+  assert.equal(transaction.maxAttempts, 1);
+  assert.throws(() => buildNoteTransaction({ ...record('oversized'), reason: 'x'.repeat(1025) }), /one-message limit/);
 });
 
 test('a failed publication is queued rather than lost', async () => {

@@ -1,6 +1,6 @@
 # contracts
 
-**Current evaluation setup:** follow [the runbook](../docs/ENVIRONMENT.md). The expiry-fixed source needs a fresh deployment; the address and dataset receipts below are historical. `prepare:testnet` idempotently configures the evaluation workspace and both agents without seed settlements. Deployment/setup require `CONFIRM_TESTNET_PAYMENT=yes` and testnet. Contract tests now include this setup and reservation expiry.
+**Current evaluation deployment:** `0x94FFc923123107EDB3aCAa3C9ba19cc09CF681fe`, block 40425744, bytecode verified against the expiry-fixed source. [Live evidence](../docs/evidence/live-evaluation-2026-09-12.json) records one genuine evaluation payment and delivery. The older address and dataset receipts below are historical. `prepare:testnet` configures the evaluation workspace idempotently without seed settlements. Follow [the runbook](../docs/ENVIRONMENT.md).
 
 **Owner:** Kavish
 

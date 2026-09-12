@@ -2,7 +2,7 @@
 
 Shared spending memory for agents choosing open models. Buy one bounded browser evaluation, inspect the evidence, and let another agent reuse the same compatible report before running it again.
 
-**Working locally:** two open models, five browser tasks, durable reports and browser artifacts, shared acquire/reuse workflow, dashboard, recovery and tests. Hedera x402 evaluation payments and HCS are implemented but **the new evaluation flow has not yet been verified on testnet**. Graph is deferred. [Observed evidence](docs/VERIFICATION.md) · [Phase tracker](docs/TASKS.md) · [Runbook](docs/ENVIRONMENT.md).
+**Verified on Hedera testnet:** one 0.5 HBAR x402 evaluation, ten real model/task executions, one subsequent report reuse without another payment, and three confirmed HCS notes linked to contract events. Deployment and verification used an observed 2.81652147 testnet HBAR against a 5 HBAR allowance. The local dashboard also supports evaluation without payment. Graph is deferred. [Live evidence](docs/evidence/live-evaluation-2026-09-12.json) · [Verification](docs/VERIFICATION.md) · [Runbook](docs/ENVIRONMENT.md).
 
 ## Run locally — no paid services
 
@@ -49,7 +49,7 @@ Dashboard / two agent clients → orchestrator → shared report discovery
 
 A report can be reused only within the workspace, for the exact versioned configuration, while fresh, intact and successfully delivered. Reuse counters increment after retrieval and validation. SQLite supports discovery and local coordination; the contract authorizes real spending. The contract is an accounting ledger, **not a vault**: the operator holds the treasury key. Unknown settlement keeps the reservation claimed; recovery checks the original transaction without submitting a replacement payment. Delivery and payment are distinct outcomes.
 
-The application is a local, single-operator demo bound to loopback, with one worker per database. It is not a hosted multi-tenant service. [Testnet setup and recovery](docs/ENVIRONMENT.md) describes the remaining verification steps. Historical dataset receipts do not prove payment for this new service.
+The application is a local, single-operator demo bound to loopback, with one worker per database. It is not a hosted multi-tenant service. Set `COMMON_READ_ONLY=yes` to inspect existing evidence without enabling execution or transaction retries. The verified evaluation has its own receipt; historical dataset receipts are separate. See [testnet setup and recovery](docs/ENVIRONMENT.md).
 
 ## Find the code
 

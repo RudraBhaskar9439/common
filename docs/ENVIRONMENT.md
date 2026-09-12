@@ -10,7 +10,9 @@ No `.env` is needed for local mode. Optionally copy root `.env.example` to root 
 
 `npm run test:all` requires `npm ci --prefix contracts` and Chromium. It needs no wallets, Ollama models or blockchain connection. `npm run measure:reuse` separately needs both installed models and performs actual inference. Graph credentials and paid model APIs are not used.
 
-## Testnet prerequisites — currently unverified
+## Testnet setup and verified evidence
+
+The first live evaluation is now verified; see `docs/evidence/live-evaluation-2026-09-12.json`. Current contract: `0x94FFc923123107EDB3aCAa3C9ba19cc09CF681fe`. The local configuration opens `.common-data/live-verification` in read-only mode. `COMMON_READ_ONLY=yes` prevents execution, startup recovery and transaction retries while allowing authenticated report/artifact inspection. To return to free local evaluation, use COMMON_MODE=local, COMMON_READ_ONLY=no and the original COMMON_DATA_DIR=.common-data.
 
 Live execution requires explicit authorization and testnet HBAR. No paid hosting is required; the two servers can run locally. Put secrets only in root `.env`, never in chat, source, screenshots or a video.
 
@@ -34,7 +36,7 @@ Live execution requires explicit authorization and testnet HBAR. No paid hosting
 Accounting budgets and per-payment caps exclude contract/network fees and are **not** a global fee cap. Agree a testnet spending allowance before running the commands below. The treasury must hold testnet funds; `fundWorkspace` only records an accounting allocation.
 
 1. Install contract dependencies and run local tests. Set the testnet configuration and explicit transaction flag.
-2. Deploy the current contract with `npm run deploy:testnet --prefix contracts`. Save the printed address into root `.env`. The historical address in older evidence lacks the new expiry check.
+2. Reuse the current verified deployment if its bytecode matches the source. If a fresh deployment is needed, use `npm run deploy:testnet --prefix contracts` and save the printed address into root `.env`. The historical address in older dataset evidence lacks the new expiry check.
 3. Run `npm run prepare:testnet --prefix contracts`. It creates the chosen workspace, sets its accounting budget to the target and authorizes `agent-a`/`agent-b`. Repeating it does not fund twice. It never seeds a fake settlement.
 4. If no topic exists, run `npm run create:topic --workspace @common/hedera-adapter`, then save the printed topic ID. Existing topics are preserved.
 5. Read current facilitator capabilities with `npm run supported --workspace @common/paid-service` and verify the Hedera testnet exact scheme and fee payer. Never assume a historical fee payer is still current.

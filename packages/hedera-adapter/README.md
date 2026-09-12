@@ -1,5 +1,7 @@
 # hedera-adapter
 
+**Current live evidence:** [one paid evaluation and three HCS notes](../../docs/evidence/live-evaluation-2026-09-12.json), using contract `0x94FFc923123107EDB3aCAa3C9ba19cc09CF681fe`. Native notes are limited to one message and a 0.1 HBAR submission-fee ceiling. Submission attempts are bounded independently of receipt polling; consensus timestamps come from a free mirror read. The app persists its operation registry and decision outbox. Older dataset examples below are historical.
+
 2026-09-12 recovery update: exact reserved amounts, network and resource are checked before signing. PaymentPending is entered immediately before sending signed bytes. HTTP failures after submission remain uncertain. Reconciliation requires the persisted signed transaction ID; missing mirror data never automatically releases funds. createLiveAdapter accepts an OperationRegistry. PaymentResult now carries optional delivered content. Pending restarts can reconcile. The modified contract expiry check requires a new deployment before claiming it is enforced on testnet. Historical examples below predate these repairs.
 
 **Owner:** Kavish
@@ -111,7 +113,7 @@ switch (result.status) {
     // Show the user a waiting state and reconcile.
     const operation = await adapter.reconcile('op-a-1');
     // 'paid'    -> the transfer was found; carry on
-    // 'released'-> proven absent after the window closed; budget returned
+    // Missing mirror data stays inconclusive; the current adapter never infers absence.
     // still 'settlement_unknown' -> inconclusive. Wait and call again.
     break;
 }
@@ -169,10 +171,9 @@ $env:CONFIRM_REAL_PAYMENT="yes"; npm run run:operation; Remove-Item Env:\CONFIRM
 | Competing reservation rejected | `PURCHASE_PENDING`, on-chain |
 | Unknown settlement recovered | Resolved by reconciliation; exactly one transfer, no double payment |
 
-## Not implemented
+## Remaining limits
 
-- **HCS decision notes.** `recordDecision` writes the contract event and returns
-  `hcsStatus: 'pending'`. It does not publish to HCS. The status is honest, not a bug.
+- **HCS publication is at least once.** Consumers deduplicate decision IDs; a lost receipt can leave a published note pending until confirmed. HCS and contract events are separate transactions.
 - **HTS token payments.** The transfer builder supports them, but only HBAR is tested, and
   HTS additionally requires token association on both accounts.
 - **HTS reconciliation.** The mirror-node matcher reads HBAR transfers only.

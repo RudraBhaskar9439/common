@@ -12,7 +12,7 @@ test('browser acquisition, reuse, download and mobile layout with an explicitly 
   const directory = await mkdtemp(join(tmpdir(), 'common-browser-'));
   const spec = { ...fixtureEvaluationSpec, promptVersion: '3', toolVersion: '2' };
   let runs = 0;
-  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'browser-test', specProvider: async () => spec,
+  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'browser-test', readOnly: false, specProvider: async () => spec,
     executor: { mode: 'local', execute: async op => {
       runs++;
       return { report: { schemaVersion: 1, source: 'fixture', jobId: op.operationId, specHash: evaluationSpecHash(op.spec), spec: op.spec,

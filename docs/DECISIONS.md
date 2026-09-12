@@ -1,5 +1,9 @@
 # Decision log
 
+## 2026-09-12 — Bounded testnet verification authorized and completed
+
+Rudra explicitly approved up to 5 testnet HBAR for deployment, workspace setup, one paid evaluation and HCS verification. The observed debit was 2.81652147 HBAR. One purchase and one reuse completed; three existing HCS messages were confirmed and linked, with no duplicate publication during receipt recovery. Root local configuration now points to the new contract and evidence directory, with COMMON_READ_ONLY=yes and CONFIRM_TESTNET_PAYMENT=no. No credentials were committed. Further purchases need a new execution allowance; the prior approval is not an unlimited standing authorization.
+
 ## 2026-09-12 — Continue directly on main
 
 Rudra explicitly requested all work on main. The tested Phase 0–5 commits were fast-forwarded to main without conflicts; subsequent tested phases commit and push there. This supersedes the earlier branch-only restriction. Repository visibility stays private; no PR or paid infrastructure is implied.

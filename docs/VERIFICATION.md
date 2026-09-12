@@ -1,5 +1,17 @@
 # Verification evidence — 2026-09-12
 
+## Live evaluation verified
+
+Rudra authorized at most 5 testnet HBAR. The current compiled contract was deployed at `0x94FFc923123107EDB3aCAa3C9ba19cc09CF681fe`, block 40425744, and its runtime bytecode matched the tested build. Workspace `common-evaluation-demo` authorized both agents and allocated exactly 0.5 HBAR for one evaluation.
+
+Payment `0.0.7162784-1789221528-773144482` is SUCCESS on the mirror node: the treasury was debited 50,000,000 tinybars and the seller credited the same amount. Operation `577ecf0b-28b6-4f3f-b7ac-ed0e4fa30d45` is Delivered on-chain. The workspace records 0.5 HBAR spent and zero committed. Agent B retrieved the same validated report: one acquisition, one reuse, one payment, 50% reuse rate. Actual Qwen outcomes were 2/5 and 4/5, with zero infrastructure errors.
+
+HCS topic `0.0.10465595` contains buy/reuse/wait notes at sequences 3/4/5. All three were read back and linked to confirmed DecisionRecorded events. Two initial receipt queries returned before confirmation; the notes were already published. Recovery verified their full original content and linked the existing sequences without another HCS submission or evaluation payment. Submission attempts are now bounded separately from free receipt polling; consensus timestamps use the free mirror endpoint instead of a paid record query.
+
+Total observed debit from the common operator/treasury account was **2.81652147 testnet HBAR**, including deployment, setup, payment, lifecycle/decision transactions, HCS and record-query fees. No fiat or paid hosting was used. A temporary RPC guard capped contract gas, and native publication attempts had separate fee limits. The guard was stopped after verification; the local dashboard now opens the live evidence in read-only mode with transaction authorization disabled.
+
+See [machine-readable evidence](evidence/live-evaluation-2026-09-12.json). The full suite now passes **126 tests**, including HCS fee/message bounds and read-only API refusal. This is one verified testnet flow, not production certification.
+
 ## Local regressions
 
 Phase 6 `npm run test:all` passed 122 tests: 47 interface/integration, 16 service, 32 payment adapter, 3 controlled-browser harness, 2 storage, 1 dashboard browser journey and 21 local contract tests. Phase 7 added two passing workspace setup tests, bringing the total to 124. TypeScript checks/build and the explicitly labeled mock demo passed. A clean `npm ci --ignore-scripts` succeeded with the committed lockfile. Local runtime: Node 26.3.1; Phase 6 GitHub Actions also passed on Node 24. These are separate from network settlement evidence.
@@ -24,4 +36,4 @@ The audit is **not clean**. Remaining SDK transitives include React Native/Metro
 
 A read-only facilitator `/supported` request on 2026-09-12 confirmed x402 v2 exact for `hedera:testnet`, advertising fee payer `0.0.7162784`. This confirms advertised capability, not a settled evaluation payment. Recheck it before use.
 
-Fresh deployment of the expiry-fixed contract, an actual x402 purchase of the evaluation service, HCS notes for this new flow, hosted deployment and submission acceptance. Historical synthetic-dataset receipts and fixture tests do not establish those outcomes.
+Hosted deployment, public release, submission acceptance, and recovery under every possible real-network failure remain unverified. The live flow above establishes this evaluation purchase and its HCS evidence; historical dataset receipts and fixture tests remain separate.

@@ -22,14 +22,17 @@ async function body(req: IncomingMessage) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
 }
 
-export async function startApplication(options: { port?: number; dataDir?: string; executor?: EvaluationExecutor; specProvider?: () => Promise<EvaluationSpec>; workspaceId?: string } = {}) {
+export async function startApplication(options: { port?: number; dataDir?: string; executor?: EvaluationExecutor; specProvider?: () => Promise<EvaluationSpec>; workspaceId?: string; readOnly?: boolean } = {}) {
   try { process.loadEnvFile(join(ROOT, '.env')); } catch { /* Optional for local mode. */ }
   const dataDir = resolve(ROOT, options.dataDir ?? process.env['COMMON_DATA_DIR'] ?? '.common-data');
   const db = new CommonDatabase(join(dataDir, 'app.sqlite'));
   const workspaceId = options.workspaceId ?? process.env['COMMON_WORKSPACE_ID'] ?? 'local-demo';
   const mode = process.env['COMMON_MODE'] ?? 'local';
   if (!['local', 'hedera-testnet'].includes(mode)) throw new Error('Unsupported COMMON_MODE');
-  const executor: EvaluationExecutor = options.executor ?? (mode === 'hedera-testnet'
+  const readOnly = options.readOnly ?? process.env['COMMON_READ_ONLY'] === 'yes';
+  const executor: EvaluationExecutor = options.executor ?? (readOnly
+    ? { mode: mode as EvaluationExecutor['mode'], execute: async () => { throw new Error('Read-only review cannot start an evaluation'); } }
+    : mode === 'hedera-testnet'
     ? createPaidEvaluator(db, process.env['PAID_SERVICE_URL'] ?? 'http://127.0.0.1:3002')
     : { mode: 'local', execute: async operation => ({ report: await createEvaluationRunner({ artifactDir: join(dataDir, 'artifacts'), onProgress: task => db.set('progress', operation.operationId, task) }).run({ jobId: operation.operationId, spec: operation.spec }) }) });
   const workflow = createEvaluationWorkflow({ database: db, workspaceId, executor });
@@ -56,6 +59,7 @@ export async function startApplication(options: { port?: number; dataDir?: strin
       }
       const cookie = req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith('common_session='))?.slice('common_session='.length) ?? '';
       if (cookie.length !== session.length || !timingSafeEqual(Buffer.from(cookie), Buffer.from(session))) return json(res, 401, { error: 'Open the local application to start a session' });
+      if (readOnly && req.method !== 'GET') return json(res, 403, { error: 'Read-only review: new evaluations and transaction retries are disabled' });
       if (path === '/api/state' && req.method === 'GET') {
         let spec: EvaluationSpec | undefined; let readinessError: string | undefined;
         try { spec = await specProvider(); } catch (err) { readinessError = safeErrorMessage(err); }
@@ -63,7 +67,7 @@ export async function startApplication(options: { port?: number; dataDir?: strin
           const receipt = db.get<DecisionReceipt>('decision-receipts', r.id);
           return receipt?.hcsStatus === 'confirmed' ? `HCS sequence ${receipt.hcsSequenceNumber ?? 'confirmed'}` : 'HCS publication pending';
         })() })).filter(d => d.workspaceId === workspaceId).sort((a,b) => b.createdAt.localeCompare(a.createdAt));
-        return json(res, 200, { workspaceId, mode: executor.mode, spec, readinessError,
+        return json(res, 200, { workspaceId, mode: executor.mode, readOnly, spec, readinessError,
           operations: workflow.operations().map(o => ({ ...o, progress: db.get<TaskEvaluation>('progress', o.operationId) })),
           stats: await workflow.memory.getWorkspaceStats(workspaceId), decisions,
         });
@@ -104,9 +108,9 @@ export async function startApplication(options: { port?: number; dataDir?: strin
   await new Promise<void>((done,reject) => { server.once('error',reject); server.listen(options.port ?? Number(process.env['COMMON_PORT'] ?? 3000), '127.0.0.1', done); });
   const address = server.address(); if (!address || typeof address === 'string') throw new Error('Server did not bind');
   origin = `http://127.0.0.1:${address.port}`;
-  workflow.resume();
-  const timer = setInterval(() => { void workflow.flushDecisions(); }, 5000); timer.unref();
-  console.log(`Common: ${origin} (${executor.mode}; ${executor.mode === 'local' ? 'no blockchain payments' : 'testnet payment enabled'})`);
+  if (!readOnly) workflow.resume();
+  const timer = setInterval(() => { if (!readOnly) void workflow.flushDecisions(); }, 5000); timer.unref();
+  console.log(`Common: ${origin} (${executor.mode}; ${readOnly ? 'read-only; transactions disabled' : executor.mode === 'local' ? 'no blockchain payments' : 'testnet payment enabled'})`);
   return { origin, workflow, database: db, close: async () => { clearInterval(timer); await new Promise<void>(done => server.close(() => done())); await workflow.close(); db.close(); } };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await startApplication();

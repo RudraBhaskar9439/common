@@ -4,8 +4,8 @@
  * The contract event records WHAT was decided. This records WHY, as prose, with a
  * consensus timestamp and sequence number the network agrees on.
  *
- * **This module cannot spend money.** It imports no payment code and holds no path to
- * one. That is deliberate and structural: the Phase 4 requirement is that retrying an
+ * **This module pays HCS submission fees only.** It imports no evaluation payment code.
+ * That is deliberate and structural: the Phase 4 requirement is that retrying an
  * HCS note never replays a payment, and the cheapest way to guarantee that is to make it
  * impossible rather than careful.
  *
@@ -14,7 +14,7 @@
  * self-serving. Receipts and observed delivery are the evidence; this is a claim with a
  * reliable clock attached.
  */
-import { Client, PrivateKey, TopicId, TopicMessageSubmitTransaction } from '@hashgraph/sdk';
+import { Client, Hbar, PrivateKey, TopicId, TopicMessageSubmitTransaction } from '@hashgraph/sdk';
 import type { DecisionRecord } from '@common/interfaces';
 
 export interface PublishedNote {
@@ -57,6 +57,13 @@ export function buildNote(record: DecisionRecord): string {
   });
 }
 
+/** Bound a short note to one HCS message and at most 0.1 HBAR in transaction fees. */
+export function buildNoteTransaction(record: DecisionRecord): TopicMessageSubmitTransaction {
+  const message = buildNote(record);
+  if (Buffer.byteLength(message, 'utf8') > 1024) throw new Error('Decision note exceeds the one-message limit');
+  return new TopicMessageSubmitTransaction().setMaxTransactionFee(new Hbar(0.1)).setMaxChunks(1).setMaxAttempts(1).setMessage(message);
+}
+
 function clientFor(network: string, accountId: string, privateKey: string): Client {
   const client =
     network === 'mainnet' ? Client.forMainnet() : network === 'previewnet' ? Client.forPreviewnet() : Client.forTestnet();
@@ -83,13 +90,16 @@ export function createDecisionNotePublisher(config: PublisherConfig): DecisionNo
   const queued: DecisionRecord[] = [];
 
   async function publishOne(record: DecisionRecord): Promise<PublishedNote> {
-    const response = await new TopicMessageSubmitTransaction()
+    const response = await buildNoteTransaction(record)
       .setTopicId(topic)
-      .setMessage(buildNote(record))
       .execute(client);
     const receipt = await response.getReceipt(client);
     let consensusTimestamp = '';
-    try { consensusTimestamp = (await response.getRecord(client)).consensusTimestamp.toString(); }
+    try {
+      const base = config.network === 'mainnet' ? 'https://mainnet-public.mirrornode.hedera.com' : `https://${config.network}.mirrornode.hedera.com`;
+      const mirrored = await fetch(`${base}/api/v1/topics/${topic}/messages/${receipt.topicSequenceNumber}`, { signal: AbortSignal.timeout(10000) });
+      if (mirrored.ok) consensusTimestamp = ((await mirrored.json()) as { consensus_timestamp?: string }).consensus_timestamp ?? '';
+    }
     catch { /* Publication is confirmed; consensus timestamp unavailable, never substitute validStart. */ }
     return {
       decisionId: record.decisionId,

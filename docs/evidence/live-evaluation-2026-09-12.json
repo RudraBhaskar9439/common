@@ -1,0 +1,102 @@
+{
+  "verifiedAt": "2026-09-12T14:05:00.041Z",
+  "network": "hedera:testnet",
+  "chainId": 296,
+  "contractAddress": "0x94FFc923123107EDB3aCAa3C9ba19cc09CF681fe",
+  "deployment": {
+    "address": "0x94FFc923123107EDB3aCAa3C9ba19cc09CF681fe",
+    "hash": "0x5bbb26ae649b80ef63cec9089362b77982c3c6d31d6d9eb2cc9a23de8a0ba1a5",
+    "blockNumber": 40425744,
+    "status": "confirmed"
+  },
+  "workspaceId": "common-evaluation-demo",
+  "operationId": "577ecf0b-28b6-4f3f-b7ac-ed0e4fa30d45",
+  "contractStatus": "Delivered",
+  "workspaceSpentTinybar": "50000000",
+  "workspaceCommittedTinybar": "0",
+  "payment": {
+    "transactionId": "0.0.7162784-1789221528-773144482",
+    "result": "SUCCESS",
+    "treasuryDebit": -50000000,
+    "sellerCredit": 50000000
+  },
+  "acquisitions": 1,
+  "reuses": 1,
+  "reuseRate": 0.5,
+  "paymentCount": 1,
+  "hcsTopicId": "0.0.10465595",
+  "hcsNotes": [
+    {
+      "sequenceNumber": 5,
+      "consensusTimestamp": "1789221619.687930104",
+      "decisionId": "live-evaluation-b-wait",
+      "type": "wait"
+    },
+    {
+      "sequenceNumber": 4,
+      "consensusTimestamp": "1789221608.258310641",
+      "decisionId": "live-evaluation-b-reuse",
+      "type": "reuse"
+    },
+    {
+      "sequenceNumber": 3,
+      "consensusTimestamp": "1789221598.807558104",
+      "decisionId": "live-evaluation-a-buy",
+      "type": "buy"
+    }
+  ],
+  "linkedDecisionEvents": [
+    {
+      "decisionId": "live-evaluation-a-buy",
+      "type": "buy",
+      "sequenceNumber": "3",
+      "transactionHash": "0x81fbd4a1e8da778dda4190910e656ca01fa3fc36200c948936a3228010a86aeb"
+    },
+    {
+      "decisionId": "live-evaluation-b-reuse",
+      "type": "reuse",
+      "sequenceNumber": "4",
+      "transactionHash": "0x8f2d14fa3cb64512f151e5945299617a70710645a9a9ce8ef225cd2fd46f0786"
+    },
+    {
+      "decisionId": "live-evaluation-b-wait",
+      "type": "wait",
+      "sequenceNumber": "5",
+      "transactionHash": "0xc46d3b5488e91a527e216b3c3041397e2adec4560ac6d1c4f8cb45f492c4d69d"
+    }
+  ],
+  "modelSummary": [
+    {
+      "modelId": "qwen3:1.7b",
+      "revision": "sha256:8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
+      "quantization": "Q4_K_M",
+      "passed": 2,
+      "attempted": 5,
+      "infrastructureErrors": 0,
+      "passRate": 0.4,
+      "durationMs": 12147,
+      "inputTokens": 7874,
+      "outputTokens": 359
+    },
+    {
+      "modelId": "qwen3:4b",
+      "revision": "sha256:359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+      "quantization": "Q4_K_M",
+      "passed": 4,
+      "attempted": 5,
+      "infrastructureErrors": 0,
+      "passRate": 0.8,
+      "durationMs": 18861,
+      "inputTokens": 5292,
+      "outputTokens": 351
+    }
+  ],
+  "authorizedHBAR": 5,
+  "totalObservedAccountDebitHBAR": "2.81652147",
+  "costIncludes": "Contract deployment, workspace setup, payment, lifecycle/decision events, HCS and record-query fees; treasury and operator are the same account.",
+  "limitations": [
+    "One testnet evaluation; no production availability or statistical model reliability claim.",
+    "Two HCS receipts initially appeared pending; existing mirror-confirmed notes were linked without republishing.",
+    "Contracts use trusted operator accounting; they are not a funds vault."
+  ]
+}

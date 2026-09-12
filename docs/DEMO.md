@@ -16,6 +16,7 @@ Use a fresh ignored data directory for a clean local recording rather than delet
 - Working dashboard: http://127.0.0.1:3000 while this machine is running.
 - Source: tested commits on main, repository still private.
 - Evidence and exact commands: `docs/VERIFICATION.md` and `docs/ENVIRONMENT.md`.
-- Remaining: fresh evaluation-service payment receipt and HCS note, public-source/license decision, recording of the final verified flow, submission form and any hosted access requirement.
+- Live payment/HCS evidence: `docs/evidence/live-evaluation-2026-09-12.json`; the dashboard now displays this flow in read-only mode. No new payment is needed to inspect it.
+- Remaining: public-source/license decision, recording/narration for submission, submission form and any hosted access requirement.
 
 Review the [official Hedera prize requirements](https://ethglobal.com/events/ethonline2026/prizes/hedera) before submission. Do not claim Graph integration, a second sponsor, hosted availability or live x402 evaluation evidence that has not been demonstrated. Historical dataset receipts are separate evidence.
