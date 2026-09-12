@@ -1,8 +1,8 @@
 # Common
 
-Shared spending memory for AI agents. A team shares a budget, reuses purchased results, and uses earlier outcomes to make better spending decisions.
+Shared spending memory for agents evaluating open models. Run a bounded browser evaluation, inspect measured results, and reuse a compatible report before purchasing another run.
 
-**Status: development scaffold.** Shared types and a fixture-backed reuse demo run locally. Contracts, live Graph indexing, Blocky402 payments, HCS writes, hosted services, and the frontend are not implemented yet. Interface definitions are a Phase 0 draft for team review.
+**Status: Phase 0 implementation.** Hedera contracts, Blocky402 payments and HCS publication exist with historical testnet evidence. Recovery repairs, the model runner, durable storage and product UI are tracked in [the phase plan](docs/BUILD_PLAN.md). Graph is deferred. The contract accounts for reservations; it does not custody funds.
 
 ## Start in five minutes
 
@@ -35,7 +35,7 @@ Web / agents → orchestrator → spending adapter → controlled payment → pa
                     ↓                 ↓
               result store       contract events + HCS notes
                     ↑                 ↓
-                    └──── Graph memory discovery
+                    └──── durable memory discovery (Graph deferred)
 ```
 
 Graph is a read layer, not spending authority. Every acquisition must pass an authoritative reservation check. HCS is an audit record, not proof that the recorded explanation is true. Neither empty indexed results nor a missing note may trigger an automatic repeat payment.

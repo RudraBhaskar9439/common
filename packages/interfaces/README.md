@@ -1,5 +1,7 @@
 # interfaces
 
+Evaluation types and bounded validation are accepted for the current implementation in docs/DECISIONS.md. Unknown fields and unpinned model revisions are rejected before a purchase identity is generated. The legacy spending contract below is extended with affected consumers and tests in each payment phase.
+
 **Owner:** Rudra with team review
 
 Shared domain types and public adapter contracts. This is a Phase 0 draft; review before freezing.

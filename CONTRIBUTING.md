@@ -1,5 +1,7 @@
 # Team workflow
 
+Current exception authorized by Rudra on 2026-09-12: Codex implements across modules while teammates are paused and pushes tested phases to codex/open-model-evaluations. No merge, PR or visibility change is authorized. Original ownership remains the review map. See docs/DECISIONS.md.
+
 ## Ownership
 
 Aditya owns Graph reads. Kavish owns spending enforcement, Hedera integrations and infrastructure. Rudra owns application behavior and integration, and merges shared configuration changes. A component owner repairs their component during integration.

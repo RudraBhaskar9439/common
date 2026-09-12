@@ -1,5 +1,7 @@
 # File map and ownership
 
+Current implementation: Codex acts across modules under Rudra's direction while teammates are paused. Planned additions: packages/evaluation-runner for model/browser execution; packages/memory-client for a database-backed MemoryReader. Graph deferred. Evaluation types: packages/interfaces/src/evaluation.ts. Fingerprinting: packages/agent-tools/src/evaluation-key.ts.
+
 ```text
 common/
 ├── apps/

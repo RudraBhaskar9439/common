@@ -1,5 +1,7 @@
 # Phase 0 interface review
 
+The evaluation boundary is accepted under Rudra's implementation direction in DECISIONS.md. packages/interfaces/src/evaluation.ts defines bounded requests, separate job states, outcomes and reports. Canonical serialization validates before fingerprinting. Legacy recovery extensions are implemented with callers and regressions in the payment phase.
+
 `packages/interfaces/src/index.ts` is the executable draft. All three people must review it before treating it as frozen.
 
 | Boundary | Provider owner | Consumer |

@@ -1,4 +1,5 @@
 import { CommonError } from '@common/interfaces';
+export { fixtureEvaluationSpec } from './evaluation.js';
 import type { MemoryReader, Purchase, ResultStore, StoredResult } from '@common/interfaces';
 
 export const DEMO_NOW = '2026-09-09T12:00:00.000Z';

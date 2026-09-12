@@ -1,30 +1,30 @@
-# Ten day build plan
+# Open-model evaluation build plan
 
-Relative days are planning targets, not confirmed event dates. Full formatted plan: deliverables/Common_ETHOnline_2026_Build_Plan.docx.
+Accepted direction and constraints: [DECISIONS.md](DECISIONS.md). Implement each phase, run its checks, record observed evidence in [TASKS.md](TASKS.md), commit and push the phase branch. Do not call a phase live-verified when only local tests ran. Historical documents and receipts describe the earlier synthetic-dataset service.
 
-| Phase | When | Aditya | Kavish | Rudra | Exit evidence |
-| --- | --- | --- | --- | --- | --- |
-| 0 | First half-day | Review query and event shapes | Review spending and event shapes | Coordinate types and fixtures | Shared interface agreement recorded |
-| 1 | Days 1–2 | Indexing feasibility and fixture mappings | Controlled real payment proof and HCS foundation | Mock product flow and result storage | Mock demo plus real payment and indexing feasibility |
-| 2 | Days 3–4 | Live queries, counters, synchronization | Contracts, settlement, HCS, deploy scripts | Agents, persistent workflow, UI and baseline | Independently runnable live components |
-| 3 | Days 5–6 | Debug indexed records and discovery | Debug reservation, payment and HCS | Wire one full real workflow | One purchase, two usable deliverables, linked records |
-| 4 | Days 7–8 | Index-lag and analytics checks | Concurrency and settlement recovery | Reuse quality, integration tests and measurements | Repeatable failure tests and benchmark |
-| 5 | Days 9–10 | Query and sponsor evidence | Stable hosted deployment | Video, README and submission | Feature freeze and complete demo |
+| Phase | Deliverables | Exit checks |
+| --- | --- | --- |
+| 0 | Bounded evaluation contracts, versioned identity, fixture, ownership and service boundaries | Invalid requests rejected; changed configuration cannot reuse; legacy checks and mock demo pass |
+| 1 | Exact payment binding, safe pending recovery/reconciliation; first controlled browser/model experiment | Settlement uncertainty and expiry regressions; one real local model task |
+| 2 | Five tasks, two model runs, deterministic scoring, traces, durable reports and operation storage | Full live local evaluation; restart and report retrieval tests |
+| 3 | x402 job execution and authenticated unbilled recovery | Local paid-path tests; separate real testnet payment evidence when credentials exist |
+| 4 | Durable discovery, acquire/reuse/wait workflow, decision outbox and counters | Concurrent requests produce one acquisition; authorized reuse; changed version rejected |
+| 5 | Setup, execution and comparison UI | Browser journey through evaluation and reuse; real displayed evidence |
+| 6 | Failure/restart/authorization tests, complete CI and measured baseline | Full local journey and regressions pass; network claims separately verified |
+| 7 | Deployment instructions, health checks, demo preparation, accurate README | Reproducible local launch; hosted verification only with access |
 
-## MVP
+## Work split
 
-- Workspace budget and agent permissions.
-- Competing reservations produce one purchase.
-- Real x402 request settled through the intended facilitator.
-- Fresh authorized result reused by another agent.
-- Prior unsuitable outcome informs a later choice.
-- HCS notes linked to indexable decisions and receipts.
-- Safe unpaid expiry, unknown-settlement reconciliation and delivery-failure behavior.
+Rudra authorized one implementer across all modules while teammates are paused. Keep review boundaries: Kavish's payment/contract/infra code; Rudra's orchestration/storage/web code; Aditya's memory/evaluation handoff. New modules use public workspace exports. Root lockfile changes are serialized.
 
-## Defer
+## Useful evaluation
 
-Marketplaces, multiple networks, reputation, generalized semantic duplicate detection, streamed payments and extensive identity features.
+One application with resettable synthetic support tickets. The model sees browser-observed text and allowed controls; it chooses actions. Code operates the browser and checks final state. No model receives the grading answer. Reports include model digests, quantization, prompt/tool/app/suite versions, task outcomes, latency, usage and artifacts. Fixture actions are labeled and never presented as inference.
 
-## First critical checks
+## Recovery
 
-Validate controlled payment and actual Graph provider support by day 2. Other work continues against fixtures. A failed feasibility check requires a same-day architecture or scope decision, not a last-minute integration surprise.
+Persist payment terms and transaction identity before submission. Never release or repay an ambiguous operation. Track execution separately from payment. Lost responses must not buy another run. HCS retries must not invoke payment. Reuse requires authorization, exact configuration, freshness, successful delivery and an intact report.
+
+## Deferred
+
+Graph indexing, marketplaces, arbitrary websites or user code, training, mainnet, token streaming and paid hosting. No automatic publication, PR creation or merge is included in push authorization.

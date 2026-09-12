@@ -1,36 +1,16 @@
-# Initial task tracker
+# Phase tracker
 
-Statuses describe actual progress. Creating a stub does not complete an integration.
+Audited base: `938696f`. Baseline: 10 interface, 17 adapter, 13 paid-service and 20 local contract tests passed; typecheck/build/mock demo passed. Existing receipt evidence is historical.
 
-| ID | Task | Owner | Target | Status |
-| --- | --- | --- | --- | --- |
-| S00 | Monorepo structure, docs and local scaffold checks | Rudra | Setup | Scaffold ready; see Git history |
-| C01 | Review and freeze types, ABI and fixture definitions | All, led by Rudra | Day 1 | Needs team review |
-| G01 | Prove supported live Graph indexing path | Aditya | Day 2 | Not started |
-| H01 | Prove enforced Blocky402 paid request | Kavish | Day 2 | Not started |
-| I01 | Complete mock frontend and two-agent demo | Rudra | Day 2 | Starter reuse example only |
-| G02 | Live Graph client, mappings and counters | Aditya | Day 4 | Not started |
-| H02 | Contract, HCS, settlement reconciliation | Kavish | Day 4 | Not started |
-| I02 | Persistent operations, agents, storage and UI | Rudra | Day 4 | Not started |
-| I03 | Real end-to-end purchase and reuse | Rudra coordinates | Day 6 | Not started |
-| Q01 | Concurrency, expiry, index lag and failure tests | Component owners | Day 8 | Not started |
-| D01 | Stable hosted deployment | Kavish | Day 9 | Not started |
-| S01 | Graph contribution and query evidence | Aditya | Day 9 | Not started |
-| S02 | Final benchmark, video and submission | Rudra | Day 10 | Not started |
+| Phase | Status | Evidence / remaining work |
+| --- | --- | --- |
+| 0 | Passed locally | 30 interface tests (20 new), 17 adapter, 13 service, 20 contract tests; typecheck/build/mock demo and diff check passed. No live payment or inference claimed. |
+| 1 | Pending | Payment lifecycle/binding/reconciliation repairs; first real browser/model task |
+| 2 | Pending | Runner, scoring, persistent reports and operation storage |
+| 3 | Pending | Paid execution and delivery recovery; testnet secrets unavailable |
+| 4 | Pending | Memory, concurrency, reuse, durable decisions |
+| 5 | Pending | UI and browser verification |
+| 6 | Pending | Full regressions and economic measurement |
+| 7 | Pending | Launch/runbook/demo; hosted deployment and submission access unavailable |
 
-## Blocker template
-
-- Task ID:
-- Owner and date:
-- Observed failure and evidence:
-- Next action and person needed:
-- Independent work or mock fallback:
-- Next review time:
-
-## Acceptance evidence template
-
-- Task and PR:
-- Setup command:
-- What was verified:
-- Log, receipt, endpoint or screenshot:
-- Known limitations:
+Every phase must record what ran, passed, and remains unverified. Payment tests with doubles do not prove Hedera settlement. A model failing a task is an evaluation outcome, not a broken harness.

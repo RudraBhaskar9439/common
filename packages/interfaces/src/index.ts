@@ -1,4 +1,5 @@
 /** Phase 0 draft. Coordinate changes with all three module owners. */
+export * from './evaluation.js';
 export type ISODateTime = string;
 export type OperationStatus =
   | 'reserved' | 'payment_pending' | 'settlement_unknown' | 'paid'
