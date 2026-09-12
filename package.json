@@ -12,12 +12,14 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run demo:mock",
+    "dev": "npm start --workspace @common/orchestrator",
     "demo:mock": "tsx apps/orchestrator/src/demo.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "test": "tsx --test tests/interfaces/*.test.ts tests/integration/*.test.ts",
-    "check": "npm run typecheck && npm run build && npm test"
+    "check": "npm run typecheck && npm run build && npm test",
+    "start": "npm start --workspace @common/orchestrator",
+    "service:evaluations": "npm run start:evaluations --workspace @common/paid-service"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

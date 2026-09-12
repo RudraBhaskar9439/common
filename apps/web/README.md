@@ -19,7 +19,7 @@ Use `@common/interfaces` for shared contracts. Do not import another workspace's
 
 ## Current state
 
-Reserved structure only, or an explicit NOT_IMPLEMENTED factory. No live integration is claimed. Choose module-specific runtime dependencies with the owner before building.
+The local dashboard is implemented in `public/index.html`, `public/app.js` and `public/style.css`. The public `readWebAsset` export serves only these named assets through the orchestrator. Run `npm run dev` at the repository root and open http://127.0.0.1:3000. It displays model measurements, task artifacts, acquisition/reuse counters and decision history. Local mode explicitly reports zero blockchain payments. Browser sessions and workspace access are enforced by the orchestrator.
 
 ## Handoff
 

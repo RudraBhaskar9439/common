@@ -10,9 +10,13 @@
     "@common/hedera-adapter": "*",
     "@common/result-store": "*",
     "@common/evaluation-runner": "*",
-    "@common/memory-client": "*"
+    "@common/memory-client": "*",
+    "@common/web": "*"
   },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "tsx src/server.ts"
   }
 }

@@ -9,7 +9,7 @@ Audited base: `938696f`. Baseline: 10 interface, 17 adapter, 13 paid-service and
 | 2 | Passed locally | All 10 real model/task runs completed: 1.7B 2/5; 4B 4/5, zero infrastructure errors. Report validated, persisted and reopened from SQLite. 38 root tests, 2 storage tests, 3 browser tests; build/mock demo passed. |
 | 3 | Code passed locally; live blocked | 16 service tests including single-settlement concurrency, protected retrieval and unknown-settlement restart; 38 root tests/build/mock demo passed. Live service entrypoint added; testnet configuration still unavailable. |
 | 4 | Passed locally; live HCS pending | 43 root tests and 32 adapter tests/build/mock demo passed. Two real local agent requests shared one 10-task evaluation: one acquisition, one validated reuse, zero payments. Durable decisions/outbox and scoped memory implemented. |
-| 5 | Pending | UI and browser verification |
+| 5 | Passed locally | Local dashboard shows actual model reports, decisions, artifacts and counters. Desktop/mobile Chromium: no page errors or horizontal overflow; reuse increased without a new acquisition/payment; JSON and PNG downloads returned 200. Typecheck/build, 43 root tests and mock demo passed. |
 | 6 | Pending | Full regressions and economic measurement |
 | 7 | Pending | Launch/runbook/demo; hosted deployment and submission access unavailable |
 

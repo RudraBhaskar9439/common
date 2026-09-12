@@ -15,7 +15,7 @@ export interface EvaluationExecutor {
   publishDecision?: (decision: DecisionRecord) => Promise<DecisionReceipt>;
   recordDelivery?: (operation: EvaluationOperation, report: EvaluationReport, usable: boolean) => Promise<void>;
 }
-interface RequestRecord { requestId: string; workspaceId: string; agentId: string; operationId: string; purchaseKey: string; kind: 'acquire' | 'reuse' }
+export interface RequestRecord { requestId: string; workspaceId: string; agentId: string; operationId: string; purchaseKey: string; kind: 'acquire' | 'reuse' }
 
 /** One worker per application database. Public methods bind the authenticated workspace. */
 export function createEvaluationWorkflow(options: { database: CommonDatabase; workspaceId: string; executor: EvaluationExecutor }) {
