@@ -68,10 +68,18 @@ export function createPaidEvaluator(database: CommonDatabase, serviceUrl: string
       // Preserve payment evidence even if subsequent polling/delivery fails.
       database.set('evaluations', operation.operationId, { ...operation, receipt });
       const deadline = Date.now() + operation.spec.maxTaskDurationMs * operation.spec.taskIds.length * operation.spec.models.length * operation.spec.repetitions + 60000;
+      let retried = false;
       while (Date.now() < deadline) {
         const job = await request(`/jobs/${remote.jobId}`, remote.token);
         if (job['paymentStatus'] === 'settlement_unknown') await request(`/jobs/${remote.jobId}/reconcile`, remote.token, { method: 'POST' });
-        if (job['status'] === 'failed') throw new Error(String(job['error'] ?? 'Paid evaluation failed; payment retained'));
+        if (job['status'] === 'failed') {
+          // A failed paid job is a provider-side infrastructure fault: ask for one re-run of
+          // the same job under the same receipt. The service bounds retries; it never charges.
+          if (retried) throw new Error(String(job['error'] ?? 'Paid evaluation failed; payment retained'));
+          retried = true;
+          try { await request(`/jobs/${remote.jobId}/retry`, remote.token, { method: 'POST' }); continue; }
+          catch (err) { throw new Error(`${String(job['error'] ?? 'Paid evaluation failed')} — retry refused: ${err instanceof Error ? err.message : String(err)}`); }
+        }
         if (job['status'] === 'completed') {
           const report = await request(`/jobs/${remote.jobId}/report`, remote.token) as unknown as EvaluationReport;
           validateEvaluationReport(report, operation.spec);

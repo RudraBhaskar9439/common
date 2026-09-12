@@ -1,14 +1,130 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Common · Open-model evaluation</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
 <body>
-<aside class="sidebar"><a class="brand" href="#overview"><span class="brand-mark">c</span>common<span class="brand-dot">.</span></a><div class="workspace"><span class="workspace-icon">◈</span><div>Model research<span id="workspace-name">Local workspace</span></div></div><nav aria-label="Main navigation"><a href="#overview">◉ <span>Overview</span></a><a href="#lab">⌘ <span>Evaluation lab</span></a><a href="#memory">≋ <span>Decision memory</span></a></nav><div class="sidebar-bottom"><span class="status-dot"></span> Open models. Shared evidence.<p>Make the next decision<br>with what you already know.</p><small>COMMON / ETHONLINE 2026</small></div></aside>
-<main id="overview"><header><span class="breadcrumb">WORKSPACE <span>/</span> OVERVIEW</span><span class="mode" id="mode">Connecting…</span></header>
-<section class="hero"><div><p class="eyebrow">A LITTLE EVIDENCE GOES A LONG WAY</p><h1>Choose with evidence.<br><span>Reuse what you’ve learned.</span></h1><p class="intro">Test open models on real browser tasks. Let the next agent<br class="desktop"> use the result, instead of running the same experiment again.</p></div><div class="hero-art" aria-hidden="true"><div class="orbit"><span>A</span><strong>c</strong><span>B</span></div><p>ONE EVALUATION · SHARED MEMORY</p></div></section>
-<div class="notice" id="mode-note">Checking inference and payment configuration…</div>
-<section class="metrics" aria-label="Workspace statistics"><article><p>Evaluations acquired</p><strong id="acquisitions">0</strong><small>Completed and validated</small></article><article><p>Reports reused</p><strong id="reuses">0</strong><small>Retrieved by another request</small></article><article class="metric-highlight"><p>Reuse rate</p><strong id="reuse-rate">—</strong><small>Reuse / completed requests</small></article><article><p>Paid requests</p><strong id="payments">0</strong><small id="spend">0 HBAR in evaluation purchases</small></article></section>
-<section class="lab-grid" id="lab"><article class="panel setup"><div class="section-label"><span>01 / EVALUATION LAB</span><span class="pill">CONTROLLED SUITE</span></div><h2>Find your model’s fit.</h2><p class="muted">Two open models. Five support-desk tasks.<br>Actions are checked against the browser’s final state.</p><div id="models" class="model-list"></div><label class="field-label" for="agent">Requesting agent</label><select id="agent"><option value="agent-a">Agent A · Model selection</option><option value="agent-b">Agent B · Workflow planning</option></select><button id="acquire" class="primary">Find or run evaluation <span>↗</span></button><div class="secondary-actions"><button id="reuse">Ask Agent B to reuse</button><button id="fresh">Run fresh measurement</button></div><p class="fine-print">Existing reports are reused only when the configuration matches and the evidence is fresh. A fresh measurement creates a new evaluation.</p><p id="action-message" role="status" aria-live="polite"></p></article>
-<article class="panel runs"><div class="section-label"><span>02 / ACTIVITY</span><span id="run-count">0 runs</span></div><h2>Work in motion.</h2><div id="runs"><div class="empty">Your first evaluation starts here.<small>Run a task suite to create shared evidence.</small></div></div></article></section>
-<section class="panel evidence" id="evidence"><div class="section-label"><span>03 / MEASURED EVIDENCE</span><a id="download" hidden>Download report ↗</a></div><div class="evidence-title"><div><h2>A comparison you can inspect.</h2><p id="report-context" class="muted">Select a completed evaluation to see its results.</p></div><span id="report-source" class="pill" hidden></span></div><div id="comparison"></div><div id="task-results"></div><p id="limitations" class="fine-print"></p></section>
-<section class="panel memory" id="memory"><div class="section-label"><span>04 / DECISION MEMORY</span><span>CHOSEN · REJECTED · WHY</span></div><h2>Every decision leaves a note.</h2><div id="decisions"><p class="muted">Decision history will appear after the first request.</p></div></section>
+<aside class="sidebar">
+  <a class="brand" href="#overview"><span class="brand-mark">c</span>common<span class="brand-dot">.</span></a>
+  <div class="workspace" title="Current workspace"><span class="workspace-icon">◈</span><div><small>Model research</small><span id="workspace-name" class="ws-name">Local workspace</span></div><span class="ws-dot" id="ws-dot"></span></div>
+  <nav aria-label="Main navigation">
+    <a href="#overview" data-nav="overview"><i>◉</i><span>Overview</span></a>
+    <a href="#lab" data-nav="lab"><i>⌘</i><span>Evaluation lab</span></a>
+    <a href="#evidence" data-nav="evidence"><i>▤</i><span>Evidence</span><em id="nav-evidence-count" class="nav-count" hidden></em></a>
+    <a href="#memory" data-nav="memory"><i>≋</i><span>Decision memory</span><em id="nav-memory-count" class="nav-count" hidden></em></a>
+    <a href="#ledger" data-nav="ledger"><i>◫</i><span>Ledger</span></a>
+  </nav>
+  <div class="sidebar-bottom"><span class="live-pill"><span class="status-dot" id="live-dot"></span><span id="live-label">Connecting…</span></span><p>Make the next decision<br>with what you already know.</p><small>COMMON / ETHONLINE 2026</small></div>
+</aside>
+
+<main>
+<header><span class="breadcrumb">WORKSPACE <span>/</span> <span id="crumb">OVERVIEW</span></span><span class="mode" id="mode">Connecting…</span></header>
+
+<!-- ============================== OVERVIEW ============================== -->
+<section class="view" data-view="overview">
+  <div class="hero"><div><p class="eyebrow">A LITTLE EVIDENCE GOES A LONG WAY</p><h1>Choose with evidence.<br><span>Reuse what you’ve learned.</span></h1><p class="intro">Test open models on real browser tasks. Let the next agent<br class="desktop"> use the result, instead of running the same experiment again.</p></div><div class="hero-art" aria-hidden="true"><div class="orbit"><span>A</span><strong>c</strong><span>B</span></div><p>ONE EVALUATION · SHARED MEMORY</p></div></div>
+
+  <div class="notice" id="mode-note">Checking inference and payment configuration…</div>
+
+  <div class="status-strip" aria-label="System status">
+    <div><small>Mode</small><strong id="st-mode">—</strong></div>
+    <div><small>Workspace</small><strong id="st-workspace">—</strong></div>
+    <div><small>Models ready</small><strong id="st-models">—</strong></div>
+    <div><small>Operations</small><strong id="st-ops">—</strong></div>
+    <div><small>Budget spent</small><strong id="st-spend">—</strong></div>
+    <div><small>Last refresh</small><strong id="st-refresh">—</strong></div>
+  </div>
+
+  <div class="metrics" aria-label="Workspace statistics">
+    <article><p>Evaluations acquired <span class="help" title="Evaluations this workspace ran to completion and validated.">?</span></p><strong id="acquisitions">0</strong><small>Completed and validated</small></article>
+    <article><p>Reports reused <span class="help" title="Requests answered from an existing report instead of a new run.">?</span></p><strong id="reuses">0</strong><small>Retrieved by another request</small></article>
+    <article class="metric-highlight"><p>Reuse rate <span class="help" title="Reuses divided by all completed requests. Higher means less repeated work.">?</span></p><strong id="reuse-rate">—</strong><small>Reuse / completed requests</small></article>
+    <article><p>Paid requests <span class="help" title="Operations with a settled payment receipt on Hedera testnet.">?</span></p><strong id="payments">0</strong><small id="spend">0 HBAR in evaluation purchases</small></article>
+  </div>
+
+  <div class="two-col">
+    <article class="panel">
+      <div class="section-label"><span>HOW IT WORKS</span><span class="pill">FOUR STEPS</span></div>
+      <ol class="steps">
+        <li><strong>An agent asks</strong><p>“Which open model can run this support desk?” Common checks shared memory for a matching, fresh report.</p></li>
+        <li><strong>If nothing exists, reserve and pay</strong><p>The contract claims the purchase atomically. On testnet, 0.5 HBAR settles through x402 before any compute runs.</p></li>
+        <li><strong>The evaluation runs</strong><p>Each model gets a browser and five tasks. Deterministic checks inspect the final state — no model grades another model.</p></li>
+        <li><strong>The next agent reuses it</strong><p>Same configuration, still fresh, delivered successfully → the report is handed over. No payment, no wait.</p></li>
+      </ol>
+    </article>
+    <article class="panel">
+      <div class="section-label"><span>LATEST ACTIVITY</span><a href="#lab" class="link-small">Open the lab ↗</a></div>
+      <div id="overview-activity"><div class="empty small">Nothing has run yet.<small>Use the bar below to request an evaluation.</small></div></div>
+    </article>
+  </div>
+</section>
+
+<!-- ============================== LAB ============================== -->
+<section class="view" data-view="lab" hidden>
+  <div class="view-head"><div><p class="eyebrow">01 / EVALUATION LAB</p><h2>Find your model’s fit.</h2><p class="muted">Open models against a controlled support desk. Actions are checked against the browser’s final state, not against another model’s opinion.</p></div><span class="pill">CONTROLLED SUITE</span></div>
+  <div class="lab-grid">
+    <article class="panel setup">
+      <div class="section-label"><span>CONFIGURATION</span><span id="spec-hash" class="mono muted"></span></div>
+      <p class="field-label">Models under test</p>
+      <div id="models" class="model-list"></div>
+      <p class="field-label">Task suite <span id="task-count" class="muted"></span></p>
+      <ol id="tasks" class="task-list"></ol>
+      <dl class="spec-grid" id="spec-grid"></dl>
+      <p class="fine-print">A report is reusable only for this exact configuration: same models and digests, same tasks, same prompt and tool versions, same limits. Change any of it and it is a different purchase.</p>
+    </article>
+    <article class="panel runs">
+      <div class="section-label"><span>ACTIVITY</span><span id="run-count">0 runs</span></div>
+      <div id="runs"><div class="empty">Your first evaluation starts here.<small>Use the bar below to request one.</small></div></div>
+    </article>
+  </div>
+</section>
+
+<!-- ============================== EVIDENCE ============================== -->
+<section class="view" data-view="evidence" hidden>
+  <div class="view-head"><div><p class="eyebrow">02 / MEASURED EVIDENCE</p><h2>A comparison you can inspect.</h2><p id="report-context" class="muted">Select a completed evaluation to see its results.</p></div><div class="head-actions"><span id="report-source" class="pill" hidden></span><a id="download" class="link-small" hidden>Download report ↗</a></div></div>
+  <div class="evidence-layout">
+    <aside class="panel report-list-panel"><div class="section-label"><span>REPORTS</span><span id="report-list-count"></span></div><div id="report-list"><p class="muted">No completed evaluations yet.</p></div></aside>
+    <div class="panel report-detail">
+      <div id="report-meta" class="report-meta" hidden></div>
+      <div id="comparison"><div class="empty small">Select a report.<small>Completed evaluations appear on the left.</small></div></div>
+      <div id="task-results"></div>
+      <p id="limitations" class="fine-print"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== MEMORY ============================== -->
+<section class="view" data-view="memory" hidden>
+  <div class="view-head"><div><p class="eyebrow">03 / DECISION MEMORY</p><h2>Every decision leaves a note.</h2><p class="muted">Buy, reuse, wait or reject — each with what was chosen, what was rejected, and why. On testnet, each note is published to HCS and linked to a contract event.</p></div><div class="filter-row" id="decision-filters"><button data-filter="all" class="active">All</button><button data-filter="buy">Buy</button><button data-filter="reuse">Reuse</button><button data-filter="wait">Wait</button><button data-filter="reject">Reject</button></div></div>
+  <article class="panel"><div id="decisions"><p class="muted">Decision history will appear after the first request.</p></div></article>
+</section>
+
+<!-- ============================== LEDGER ============================== -->
+<section class="view" data-view="ledger" hidden>
+  <div class="view-head"><div><p class="eyebrow">04 / LEDGER &amp; RECEIPTS</p><h2>What was paid, and where to check.</h2><p class="muted">Every settled payment carries a Hedera transaction id you can verify independently on HashScan. Uncertain settlements stay blocked until reconciled — they are never retried blindly.</p></div><span class="pill" id="ledger-mode"></span></div>
+  <article class="panel"><div class="section-label"><span>OPERATIONS</span><span id="ledger-count"></span></div><div id="ledger-body"><p class="muted">No operations recorded in this workspace.</p></div></article>
+  <div class="trust-grid">
+    <div><strong>Agents hold no keys</strong><p>Requests never sign anything. One payment module signs, only against a matching on-chain reservation.</p></div>
+    <div><strong>One purchase per configuration</strong><p>The contract claims a purchase atomically. A competing request is refused, not duplicated.</p></div>
+    <div><strong>Payment ≠ delivery</strong><p>A paid job whose report fails stays paid and is recorded as such. Nothing repurchases automatically.</p></div>
+    <div><strong>Uncertainty is not failure</strong><p>If settlement is unclear, the operation waits for the chain to confirm. Reconciliation matches the exact signed transaction.</p></div>
+  </div>
+</section>
+
 <footer>Common is a shared memory for measured decisions.<span>Small task suite · Observed outcomes · No reliability guarantee</span></footer>
-</main></body></html>
+</main>
+
+<!-- Persistent command bar: full request controls on every view, with a live activity feed. -->
+<div class="command-bar" id="command-bar" role="region" aria-label="Request an evaluation">
+  <button class="cb-toggle" id="cb-toggle" aria-expanded="false" aria-controls="cb-detail" title="Show activity">▴</button>
+  <div class="cb-row">
+    <div class="cb-left"><label class="field-label" for="agent">Requesting agent</label><select id="agent"><option value="agent-a">Agent A · Model selection</option><option value="agent-b">Agent B · Workflow planning</option></select></div>
+    <div class="cb-main"><button id="acquire" class="primary">Find or run evaluation <span>↗</span></button><p id="action-message" role="status" aria-live="polite"></p></div>
+    <div class="cb-right"><button id="reuse" class="ghost">Ask Agent B to reuse</button><button id="fresh" class="ghost">Run fresh measurement</button></div>
+    <span id="dock-state" class="dock-state">Idle</span>
+  </div>
+  <div class="cb-detail" id="cb-detail" hidden>
+    <div class="cb-feed-head"><span class="section-label">ACTIVITY</span><span id="agent-hint" class="agent-hint"></span><button id="cb-clear" class="link-small">Clear</button></div>
+    <ol id="cb-feed" class="cb-feed"><li class="feed-empty">Events will appear here as the request moves through memory, payment and evaluation.</li></ol>
+  </div>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+</body></html>

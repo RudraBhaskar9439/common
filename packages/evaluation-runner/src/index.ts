@@ -182,8 +182,16 @@ export function createEvaluationRunner(options: { artifactDir: string; client?: 
             }
           } catch (err) { infrastructureError = err instanceof Error ? err.message : 'Browser execution failed'; }
           const artifact = createHash('sha256').update(JSON.stringify([jobId, model.id, taskId, repetition])).digest('hex');
-          await page.screenshot({ path: join(options.artifactDir, `${artifact}.png`), fullPage: true });
-          await context.tracing.stop({ path: join(options.artifactDir, `${artifact}.zip`) });
+          // Artifact capture runs after the task, often under heavy inference load. The 2s
+          // page default is right for model actions but not for a full-page render on a busy
+          // CPU, and a failed screenshot must not discard an already-paid evaluation: record
+          // it against this task and carry on.
+          try {
+            await page.screenshot({ path: join(options.artifactDir, `${artifact}.png`), fullPage: true, timeout: 20000 });
+          } catch (err) {
+            infrastructureError ??= `Screenshot failed: ${err instanceof Error ? err.message.slice(0, 200) : 'unknown error'}`;
+          }
+          try { await context.tracing.stop({ path: join(options.artifactDir, `${artifact}.zip`) }); } catch { /* trace is best-effort evidence */ }
           await context.close();
           const passed = checks.length > 0 && checks.every(c => c.passed);
           const result: TaskEvaluation = {

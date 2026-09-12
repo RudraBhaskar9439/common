@@ -40,7 +40,7 @@ export function createJobHandler(jobs: ReturnType<typeof createEvaluationJobs>, 
         const bytes = await readFile(join(artifactDir, artifact[2]!));
         res.writeHead(200, { 'content-type': artifact[3] === 'png' ? 'image/png' : 'application/zip', 'cache-control': 'private, no-store' }); res.end(bytes); return;
       }
-      const match = /^\/jobs\/([a-f0-9-]{36})(?:\/(execute|report|reconcile))?$/.exec(path);
+      const match = /^\/jobs\/([a-f0-9-]{36})(?:\/(execute|report|reconcile|retry))?$/.exec(path);
       if (!match) return writeJson(res, 404, { error: 'not_found' });
       const id = match[1]!; const action = match[2];
       const token = req.headers.authorization?.replace(/^Bearer /, '') ?? '';
@@ -53,6 +53,11 @@ export function createJobHandler(jobs: ReturnType<typeof createEvaluationJobs>, 
       if (action === 'report' && req.method === 'GET') return writeJson(res, 200, jobs.report(id, token));
       if (action === 'reconcile' && req.method === 'POST') {
         await jobs.reconcile(id, token, mirrorUrl);
+        return writeJson(res, 200, jobs.status(id, token));
+      }
+      // Re-run a paid job after a provider-side failure. Same receipt; never a new charge.
+      if (action === 'retry' && req.method === 'POST') {
+        jobs.retry(id, token);
         return writeJson(res, 200, jobs.status(id, token));
       }
       return writeJson(res, 405, { error: 'method_not_allowed' });

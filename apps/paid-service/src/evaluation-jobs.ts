@@ -13,7 +13,17 @@ export interface PaidEvaluationJob extends EvaluationJob {
   requirements: PaymentRequirements;
   paymentStatus: 'awaiting_payment' | 'settlement_unknown' | 'paid';
   signedTransactionId?: string;
+  /** Provider-side re-runs granted after an infrastructure failure. Never a new payment. */
+  retryCount?: number;
 }
+
+/**
+ * How many times a paid job may be re-run after the PROVIDER's infrastructure fails.
+ * A job only reaches `failed` when the runner throws — a model failing its tasks yields a
+ * completed report — so every retry here is compensating for our own fault, not the
+ * customer's. Bounded so a persistently broken host cannot loop forever.
+ */
+export const MAX_INFRASTRUCTURE_RETRIES = 2;
 export interface JobFacilitator {
   verify(payload: PaymentPayload, terms: PaymentRequirements): Promise<VerifyResponse>;
   settle(payload: PaymentPayload, terms: PaymentRequirements): Promise<SettleResponse>;
@@ -149,6 +159,27 @@ export function createEvaluationJobs(options: {
       const body = await response.json() as { transactions?: { transaction_id: string; result: string; transfers: { account: string; amount: number }[] }[] };
       if (body.transactions?.some(t => t.transaction_id === id && t.result === 'SUCCESS' && t.transfers?.some(x => x.account === job.requirements.payTo && Number.isSafeInteger(x.amount) && BigInt(x.amount) === BigInt(job.requirements.amount)))) { paid(job, job.signedTransactionId); schedule(); }
       return get(jobId);
+    },
+    /**
+     * Re-run a paid job whose computation failed on our side. The customer holds a valid
+     * receipt for work that was never delivered; re-running it costs us compute, not them
+     * money. Refused for unpaid jobs, for jobs that did not fail, and past the retry bound.
+     * The same job, spec and receipt are kept — nothing new is created or charged.
+     */
+    retry(jobId: string, token: string): PaidEvaluationJob {
+      const next = db.transaction(() => {
+        const job = authorized(jobId, token);
+        if (job.paymentStatus !== 'paid') throw new Error('Only a paid job can be retried');
+        if (job.status !== 'failed') throw new Error(`Job is ${job.status}, not failed`);
+        const used = job.retryCount ?? 0;
+        if (used >= MAX_INFRASTRUCTURE_RETRIES) throw new Error(`Retry limit reached (${MAX_INFRASTRUCTURE_RETRIES}); this job needs operator attention`);
+        const { error: _discarded, ...rest } = job;
+        const queued: PaidEvaluationJob = { ...rest, status: 'queued', retryCount: used + 1, updatedAt: new Date().toISOString() };
+        db.set('service-jobs', jobId, queued);
+        return queued;
+      });
+      schedule();
+      return next;
     },
     /** Single worker process per database. Recover stopped computation; never repeat settlement. */
     resume() {

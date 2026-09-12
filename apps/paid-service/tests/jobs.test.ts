@@ -76,6 +76,42 @@ test('paid job can be retrieved repeatedly with one settlement and one computati
   } finally { await jobs.close(); db.close(); }
 });
 
+test('a paid job that fails on provider infrastructure can be re-run without a new payment, within a bound; doubles', async () => {
+  const db = new CommonDatabase(':memory:'); let payments = 0; let runs = 0; let breakRunner = true;
+  const runner: EvaluationRunner = { async run({ jobId, spec }): Promise<EvaluationReport> {
+    runs++;
+    if (breakRunner) throw new Error('fixture: browser crashed');
+    return { schemaVersion: 1, source: 'fixture', jobId, specHash: evaluationSpecHash(spec), spec, startedAt: '2026-09-12T00:00:00Z', completedAt: '2026-09-12T00:01:00Z', freshUntil: '2026-09-13T00:00:00Z', limitations: ['Fixture'],
+      tasks: spec.models.flatMap(m => spec.taskIds.map(taskId => ({ modelId: m.id, modelRevision: m.revision, taskId, repetition: 0, outcome: 'failed', checks: [{ name: 'Fixture', passed: false }], steps: [], durationMs: 0, inputTokens: 0, outputTokens: 0 }))) };
+  } };
+  const jobs = createEvaluationJobs({ database: db, runner, config, publicUrl: 'http://provider.invalid', verifySpec: async () => {}, facilitator: {
+    verify: async () => ({ isValid: true }),
+    settle: async payload => { payments++; return { success: true, transaction: signedTransferIdentity(payload.payload.transaction).transactionId }; },
+  } });
+  try {
+    const job = await jobs.prepare({ workspaceId: 'w', operationId: 'op', accessToken: token, spec: fixtureEvaluationSpec });
+    // Unpaid: retry must be refused outright.
+    assert.throws(() => jobs.retry(job.jobId, token), /paid/);
+    await jobs.execute(job.jobId, await signature(job.requirements));
+    await jobs.idle();
+    assert.equal(jobs.status(job.jobId, token).status, 'failed');
+    // Wrong token: refused. Right token: re-queued and re-run, no new settlement.
+    assert.throws(() => jobs.retry(job.jobId, 'wrong'), /Unauthorized/);
+    jobs.retry(job.jobId, token); await jobs.idle();
+    assert.equal(jobs.status(job.jobId, token).status, 'failed');
+    jobs.retry(job.jobId, token); await jobs.idle();
+    // Bound reached: a third attempt is refused, job stays failed for a human.
+    assert.throws(() => jobs.retry(job.jobId, token), /Retry limit/);
+    assert.equal(jobs.status(job.jobId, token).retryCount, 2);
+    // A completed job cannot be "retried" into a free extra run either.
+    breakRunner = false;
+    const fresh = await jobs.prepare({ workspaceId: 'w', operationId: 'op-2', accessToken: token, spec: { ...fixtureEvaluationSpec, generation: 'g2' } });
+    await jobs.execute(fresh.jobId, await signature(fresh.requirements)); await jobs.idle();
+    assert.throws(() => jobs.retry(fresh.jobId, token), /not failed/);
+    assert.deepEqual({ payments, runs }, { payments: 2, runs: 4 });
+  } finally { await jobs.close(); db.close(); }
+});
+
 test('uncertain payment survives service reconstruction and never triggers new settlement; doubles', async () => {
   const { db, jobs, count } = setup(true);
   try {
