@@ -236,6 +236,17 @@ test('an unknown dataset is refused before any payment is requested', async () =
   assert.equal(res.status, 404);
 });
 
+test('content failure after settlement never reports non-submission', async () => {
+  const dataset = DATASETS['daily-transfers']!;
+  const original = dataset.build;
+  dataset.build = () => { throw new Error('fixture delivery failure'); };
+  try {
+    const res = await call(createApp(config, stubFacilitator({}) as never), '/datasets/daily-transfers', { [HEADER_PAYMENT_SIGNATURE]: signedHeader() });
+    assert.equal(res.status, 502);
+    assert.equal((res.body as Record<string, unknown>)['settlementCertainty'], 'unknown');
+  } finally { dataset.build = original; }
+});
+
 test('the same dataset is byte-identical across calls, so two agents get the same result', () => {
   const first = JSON.stringify(DATASETS['daily-transfers']?.build());
   const second = JSON.stringify(DATASETS['daily-transfers']?.build());

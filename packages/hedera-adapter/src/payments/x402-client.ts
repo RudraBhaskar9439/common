@@ -13,7 +13,7 @@
  * Anything ambiguous resolves to settlement_unknown. A false "failed" causes a double
  * payment, which is the exact failure this project exists to prevent.
  */
-import { buildSignedTransfer } from './transfer.js';
+import { buildSignedTransfer, signedTransferIdentity, type TransferIdentity } from './transfer.js';
 
 export interface PaymentRequirements {
   scheme: string;
@@ -45,6 +45,9 @@ export interface PaidRequestInput {
   privateKey: string;
   /** Hard ceiling. A quote above this is refused before anything is signed. */
   maxAmount: bigint;
+  expectedAmount?: bigint;
+  /** Must durably record identity and claim submission before any paid request is sent. */
+  beforeSubmit?: (identity: TransferIdentity) => Promise<void>;
   /** Optional: refuse to pay a recipient other than the one bound to the reservation. */
   expectedPayTo?: string;
   expectedAsset?: string;
@@ -64,7 +67,7 @@ export async function executePaidRequest(input: PaidRequestInput): Promise<PaidR
   // --- 1. unpaid probe ---------------------------------------------------
   let quote: Response;
   try {
-    quote = await doFetch(input.resourceUrl);
+    quote = await doFetch(input.resourceUrl, { redirect: 'error', signal: AbortSignal.timeout(15000) });
   } catch (err) {
     return { status: 'failed', reason: `Could not reach the resource: ${String(err)}` };
   }
@@ -96,7 +99,17 @@ export async function executePaidRequest(input: PaidRequestInput): Promise<PaidR
   }
 
   // --- 3. refuse anything that does not match what we agreed to pay -------
+  if (requirements.scheme !== 'exact' || requirements.network !== `hedera:${input.network}`
+    || (requirements.resource !== undefined && requirements.resource !== input.resourceUrl)
+    || !/^\d+$/.test(requirements.amount)
+    || !Number.isInteger(requirements.maxTimeoutSeconds)
+    || requirements.maxTimeoutSeconds < 30 || requirements.maxTimeoutSeconds > 180) {
+    return { status: 'failed', reason: 'Invalid or mismatched payment terms', requirements };
+  }
   const amount = BigInt(requirements.amount);
+  if (amount <= 0n || (input.expectedAmount !== undefined && amount !== input.expectedAmount)) {
+    return { status: 'failed', reason: 'Quote does not match the reserved amount', requirements };
+  }
   if (amount > input.maxAmount) {
     return { status: 'failed', reason: `Quote ${amount} exceeds the configured ceiling ${input.maxAmount}`, requirements };
   }
@@ -150,10 +163,21 @@ export async function executePaidRequest(input: PaidRequestInput): Promise<PaidR
     'utf8',
   ).toString('base64');
 
+  let identity: TransferIdentity;
+  try {
+    identity = signedTransferIdentity(signedTransaction);
+    await input.beforeSubmit?.(identity);
+  } catch {
+    return { status: 'failed', reason: 'Submission preparation failed; no paid request sent', requirements };
+  }
+
   // --- 5. submit. from here, uncertainty means UNKNOWN, never failed ------
   let paid: Response;
   try {
-    paid = await doFetch(input.resourceUrl, { headers: { [HEADER_PAYMENT_SIGNATURE]: paymentHeader } });
+    paid = await doFetch(input.resourceUrl, {
+      redirect: 'error', signal: AbortSignal.timeout(30000),
+      headers: { [HEADER_PAYMENT_SIGNATURE]: paymentHeader },
+    });
   } catch (err) {
     // The request may have reached the server, which may have settled it.
     return {
@@ -195,6 +219,10 @@ export async function executePaidRequest(input: PaidRequestInput): Promise<PaidR
         requirements,
       };
     }
+    const normalize = (value: string) => value.replace(/^(\d+\.\d+\.\d+)@(\d+)\.(\d+)$/, '$1-$2-$3');
+    if (normalize(transactionId) !== normalize(identity.transactionId)) {
+      return { status: 'settlement_unknown', reason: 'Receipt does not identify the submitted transaction', requirements };
+    }
     return {
       status: 'paid',
       transactionId,
@@ -209,10 +237,8 @@ export async function executePaidRequest(input: PaidRequestInput): Promise<PaidR
   if (certainty === 'unknown') {
     return { status: 'settlement_unknown', reason: String(body['detail'] ?? body['error'] ?? 'unknown'), requirements };
   }
-  if (certainty === 'none' || paid.status === 402 || paid.status === 400) {
-    const reason = [body['error'], body['reason'], body['detail']].filter(Boolean).join(': ');
-    return { status: 'failed', reason: reason || `status ${paid.status}`, requirements };
-  }
+  // Signed bytes have left this process. An HTTP error is not independent proof of
+  // non-submission. Reconcile this exact transaction; never sign a replacement here.
 
   // No certainty signal and a non-402 error: assume the worst, which is uncertainty.
   return {

@@ -45,6 +45,7 @@ const RESERVED_AT = WINDOW_CLOSES - 300;
 
 const base = {
   mirrorNodeUrl: 'http://stub.invalid',
+  transactionId: matchingTransaction.transaction_id,
   payTo: PAY_TO,
   payer: PAYER,
   amount: AMOUNT,
@@ -62,13 +63,13 @@ test('finds the transfer and returns its real transaction id', async () => {
   assert.equal(result.status === 'found' && result.transactionId, '0.0.7162784-1789067662-127260536');
 });
 
-test('reports absent only after the validity window has closed', async () => {
+test('keeps missing mirror data inconclusive even after validity expires', async () => {
   const result = await reconcileSettlement({
     ...base,
     nowEpochSeconds: WINDOW_CLOSES + 1,
     fetchImpl: stubMirror([]),
   });
-  assert.equal(result.status, 'absent');
+  assert.equal(result.status, 'inconclusive');
 });
 
 test('refuses to call an empty result absent while the window is still open', async () => {
@@ -115,7 +116,7 @@ test('ignores a transfer of the wrong amount', async () => {
     nowEpochSeconds: WINDOW_CLOSES + 60,
     fetchImpl: stubMirror([wrongAmount]),
   });
-  assert.equal(result.status, 'absent');
+  assert.equal(result.status, 'inconclusive');
 });
 
 test('ignores a correct amount paid by someone else', async () => {
@@ -131,7 +132,7 @@ test('ignores a correct amount paid by someone else', async () => {
     nowEpochSeconds: WINDOW_CLOSES + 60,
     fetchImpl: stubMirror([otherPayer]),
   });
-  assert.equal(result.status, 'absent');
+  assert.equal(result.status, 'inconclusive');
 });
 
 test('ignores a failed transaction even when the amounts match', async () => {
@@ -141,7 +142,7 @@ test('ignores a failed transaction even when the amounts match', async () => {
     nowEpochSeconds: WINDOW_CLOSES + 60,
     fetchImpl: stubMirror([failed]),
   });
-  assert.equal(result.status, 'absent');
+  assert.equal(result.status, 'inconclusive');
 });
 
 test('ignores an identical payment made BEFORE this reservation existed', async () => {
@@ -162,7 +163,7 @@ test('ignores an identical payment made BEFORE this reservation existed', async 
     fetchImpl: stubMirror([earlierPayment]),
   });
 
-  assert.equal(result.status, 'absent', 'an earlier identical transfer must not be adopted');
+  assert.equal(result.status, 'inconclusive', 'an earlier identical transfer must not be adopted');
 });
 
 test('accepts a matching payment made after the reservation', async () => {

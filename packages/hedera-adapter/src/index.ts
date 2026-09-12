@@ -10,6 +10,7 @@ export {
   type HederaAdapterDeps,
   type HederaSpendingAdapter,
   type OperationRegistry,
+  type RememberedOperation,
   type ResourceBinding,
   type ResourceResolver,
 } from './adapter.js';
@@ -27,7 +28,7 @@ export { executePaidRequest, type PaidRequestOutcome } from './payments/x402-cli
 export { buildSignedTransfer } from './payments/transfer.js';
 export { loadAdapterConfig, loadEnvFileIfPresent, type HederaAdapterConfig } from './config.js';
 
-import { createHederaSpendingAdapter, type HederaSpendingAdapter, type ResourceResolver } from './adapter.js';
+import { createHederaSpendingAdapter, type HederaSpendingAdapter, type ResourceResolver, type OperationRegistry } from './adapter.js';
 import { BudgetClient } from './contracts/budget-client.js';
 import { createDecisionNotePublisher } from './hcs/decision-notes.js';
 import { loadAdapterConfig, loadEnvFileIfPresent } from './config.js';
@@ -40,7 +41,7 @@ import { loadAdapterConfig, loadEnvFileIfPresent } from './config.js';
  * binding, `reserve` refuses — an operation must always know what it is buying, from
  * whom, and for how much.
  */
-export function createLiveAdapter(resolveResource: ResourceResolver): HederaSpendingAdapter {
+export function createLiveAdapter(resolveResource: ResourceResolver, registry?: OperationRegistry): HederaSpendingAdapter {
   loadEnvFileIfPresent();
   const config = loadAdapterConfig();
 
@@ -65,7 +66,7 @@ export function createLiveAdapter(resolveResource: ResourceResolver): HederaSpen
     mirrorNodeUrl: config.mirrorNodeUrl,
     maxPaymentAmount: config.maxPaymentAmount,
     ...(notes ? { notes } : {}),
-  });
+  }, registry);
 }
 
 /** Convenience resolver for a single provider serving every purchase key. */

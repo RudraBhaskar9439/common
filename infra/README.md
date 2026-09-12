@@ -1,5 +1,7 @@
 # infra
 
+Current phase build: HCS publication exists. Recovery now requires the original signed transaction identity, and missing mirror data cannot automatically release an operation. Historical drills below need updated configuration and fresh testnet verification. The contract source changed to enforce expiry when starting payment; regenerate ABI and deploy before claiming that check on testnet.
+
 **Owner:** Kavish
 
 Local development deployment, health checks and the operational runbook.

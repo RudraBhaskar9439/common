@@ -1,20 +1,4 @@
-/**
- * Settlement reconciliation against the Hedera mirror node.
- *
- * This is the only way out of `settlement_unknown`. It answers one question: did a
- * transfer matching this operation's bound parameters actually reach the chain?
- *
- * Three answers, and the third is not a failure — it is the correct outcome when the
- * evidence is genuinely not yet conclusive:
- *   found      -> the transfer exists; record settlement with the real transaction id
- *   absent     -> the validity window has closed and no transfer exists; safe to release
- *   inconclusive -> the window is still open, or the mirror node is unreachable.
- *                   Stay stuck. Never release, never repay.
- *
- * Absence is only meaningful AFTER the transaction's validity window has expired. Before
- * that, a missing transfer may simply not have been submitted yet — treating it as
- * absent is exactly how a double payment happens.
- */
+/** Exact signed-transaction reconciliation. Missing mirror data stays inconclusive; no automatic absence inference. */
 
 export interface MirrorTransfer {
   account: string;
@@ -35,6 +19,8 @@ export type ReconciliationResult =
   | { status: 'inconclusive'; reason: string };
 
 export interface ReconcileInput {
+  /** From the signed transaction; optional only for legacy callers, which stay inconclusive. */
+  transactionId?: string;
   mirrorNodeUrl: string;
   /** Account that should have received the payment. */
   payTo: string;
@@ -59,58 +45,30 @@ export interface ReconcileInput {
   fetchImpl?: typeof fetch;
 }
 
-/**
- * Looks for a successful CRYPTOTRANSFER crediting `payTo` and debiting `payer` by
- * exactly `amount`. Matching on both sides and the exact amount avoids mistaking an
- * unrelated transfer for our payment.
- */
+/** Exact transaction lookup. Missing mirror data never authorizes a replacement payment. */
 export async function reconcileSettlement(input: ReconcileInput): Promise<ReconciliationResult> {
+  const id = input.transactionId?.replace(/^(\d+\.\d+\.\d+)@(\d+)\.(\d+)$/, '$1-$2-$3');
+  if (!id || !/^\d+\.\d+\.\d+-\d+-\d+$/.test(id)) {
+    return { status: 'inconclusive', reason: 'Persisted signed transaction identity required; amount matching is unsafe' };
+  }
   const doFetch = input.fetchImpl ?? fetch;
-  const now = input.nowEpochSeconds ?? Math.floor(Date.now() / 1000);
-  // Bound the search to this operation's own window. `timestamp=gte:` excludes transfers
-  // that predate the reservation and therefore cannot be its payment.
-  const url =
-    `${input.mirrorNodeUrl.replace(/\/$/, '')}/api/v1/transactions` +
-    `?account.id=${input.payTo}&transactiontype=CRYPTOTRANSFER&limit=50&order=desc` +
-    `&timestamp=gte:${input.notBeforeEpochSeconds}`;
-
-  let payload: { transactions?: MirrorTransaction[] };
+  const url = `${input.mirrorNodeUrl.replace(/\/$/, '')}/api/v1/transactions/${encodeURIComponent(id)}`;
   try {
-    const response = await doFetch(url);
-    if (!response.ok) {
-      return { status: 'inconclusive', reason: `mirror node returned ${response.status}` };
+    const response = await doFetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) return { status: 'inconclusive', reason: `Mirror returned ${response.status}; absence is not proof` };
+    const payload = await response.json() as { transactions?: MirrorTransaction[] };
+    if (!Array.isArray(payload.transactions)) return { status: 'inconclusive', reason: 'Malformed mirror response' };
+    for (const tx of payload.transactions) {
+      if (tx.transaction_id !== id || tx.result !== 'SUCCESS') continue;
+      if (Number.parseFloat(tx.consensus_timestamp) < input.notBeforeEpochSeconds) continue;
+      const valid = (account: string, amount: bigint) => tx.transfers?.some(t =>
+        t.account === account && Number.isSafeInteger(t.amount) && BigInt(t.amount) === amount);
+      if (valid(input.payTo, input.amount) && valid(input.payer, -input.amount)) {
+        return { status: 'found', transactionId: tx.transaction_id, consensusTimestamp: tx.consensus_timestamp };
+      }
     }
-    payload = (await response.json()) as { transactions?: MirrorTransaction[] };
-  } catch (err) {
-    // Cannot see the chain: we know nothing, so we must not conclude anything.
-    return { status: 'inconclusive', reason: `mirror node unreachable: ${String(err)}` };
+    return { status: 'inconclusive', reason: 'No independently confirmed matching settlement; keep reservation blocked' };
+  } catch {
+    return { status: 'inconclusive', reason: 'Mirror lookup unavailable; keep reservation blocked' };
   }
-
-  const expectedCredit = Number(input.amount);
-  const expectedDebit = -expectedCredit;
-
-  for (const transaction of payload.transactions ?? []) {
-    if (transaction.result !== 'SUCCESS') continue;
-    // Belt and braces: never trust the query parameter alone for a correctness bound.
-    if (Number.parseFloat(transaction.consensus_timestamp) < input.notBeforeEpochSeconds) continue;
-    const credited = transaction.transfers?.some((t) => t.account === input.payTo && t.amount === expectedCredit);
-    const debited = transaction.transfers?.some((t) => t.account === input.payer && t.amount === expectedDebit);
-    if (credited && debited) {
-      return {
-        status: 'found',
-        transactionId: transaction.transaction_id,
-        consensusTimestamp: transaction.consensus_timestamp,
-      };
-    }
-  }
-
-  // No match. Absence is only conclusive once the transfer could no longer be submitted.
-  if (now <= input.validUntilEpochSeconds) {
-    return {
-      status: 'inconclusive',
-      reason: `validity window still open until ${input.validUntilEpochSeconds}; a transfer may still land`,
-    };
-  }
-
-  return { status: 'absent', checkedUntil: new Date(now * 1000).toISOString() };
 }

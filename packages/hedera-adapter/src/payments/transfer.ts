@@ -23,6 +23,7 @@ import {
   PrivateKey,
   TokenId,
   TransactionId,
+  Transaction,
   TransferTransaction,
 } from '@hashgraph/sdk';
 
@@ -75,6 +76,22 @@ export interface BuildTransferInput {
 }
 
 export class TransferBuildError extends Error {}
+
+export interface TransferIdentity {
+  transactionId: string;
+  validUntilEpochSeconds: number;
+}
+
+/** Identity from the exact signed bytes, for durable recovery before submission. */
+export function signedTransferIdentity(bytes: string): TransferIdentity {
+  const transaction = Transaction.fromBytes(Buffer.from(bytes, 'base64'));
+  const id = transaction.transactionId;
+  if (!id?.validStart) throw new TransferBuildError('Signed transfer has no transaction identity');
+  return {
+    transactionId: id.toString(),
+    validUntilEpochSeconds: Number(id.validStart.seconds.toString()) + Number(transaction.transactionValidDuration.toString()),
+  };
+}
 
 /**
  * @returns base64-encoded transaction bytes for the PAYMENT-SIGNATURE header.

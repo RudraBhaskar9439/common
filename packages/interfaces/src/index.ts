@@ -65,7 +65,7 @@ export interface ReserveInput {
 }
 export interface Reservation extends Operation { expiresAt: ISODateTime }
 export type PaymentResult =
-  | { status: 'paid'; receipt: PaymentReceipt }
+  | { status: 'paid'; receipt: PaymentReceipt; content?: unknown }
   | { status: 'settlement_unknown'; operationId: string }
   | { status: 'failed'; operationId: string; reason: string };
 export interface SpendingAdapter {

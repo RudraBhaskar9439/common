@@ -107,6 +107,7 @@ export function createApp(config: PaidServiceConfig, facilitator = new Facilitat
     }
 
     // --- paid: verify, settle, then deliver -------------------------------
+    let settlementStarted = false;
     try {
       const payload = decodePaymentPayload(signature);
 
@@ -127,6 +128,7 @@ export function createApp(config: PaidServiceConfig, facilitator = new Facilitat
       // must reconcile against the mirror node; it must never simply retry.
       let settlement;
       try {
+        settlementStarted = true;
         settlement = await facilitator.settle(payload, requirements);
       } catch (err) {
         json(res, 502, {
@@ -170,6 +172,10 @@ export function createApp(config: PaidServiceConfig, facilitator = new Facilitat
         { [HEADER_PAYMENT_RESPONSE]: encodeHeader(settlement) },
       );
     } catch (err) {
+      if (settlementStarted) {
+        json(res, 502, { error: 'delivery_or_settlement_unknown', settlementCertainty: 'unknown' });
+        return;
+      }
       if (err instanceof MalformedPaymentError) {
         json(res, 400, { error: 'malformed_payment', detail: err.message });
         return;

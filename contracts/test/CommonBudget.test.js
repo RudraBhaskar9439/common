@@ -136,6 +136,13 @@ describe('CommonBudget', () => {
   });
 
   describe('expiry of unpaid reservations', () => {
+    it('refuses to start a payment after reservation expiry', async () => {
+      const { c } = await deploy();
+      await reserve(c, OP_A, AGENT_A);
+      await time.increase(TTL + 1);
+      await expect(c.markPaymentPending(OP_A)).to.be.revertedWithCustomError(c, 'ReservationExpired');
+      expect((await c.getOperation(OP_A)).status).to.equal(1n);
+    });
     it('refuses to expire before the deadline', async () => {
       const { c } = await deploy();
       await reserve(c, OP_A, AGENT_A);

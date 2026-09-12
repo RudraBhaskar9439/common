@@ -1,5 +1,7 @@
 # hedera-adapter
 
+2026-09-12 recovery update: exact reserved amounts, network and resource are checked before signing. PaymentPending is entered immediately before sending signed bytes. HTTP failures after submission remain uncertain. Reconciliation requires the persisted signed transaction ID; missing mirror data never automatically releases funds. createLiveAdapter accepts an OperationRegistry. PaymentResult now carries optional delivered content. Pending restarts can reconcile. The modified contract expiry check requires a new deployment before claiming it is enforced on testnet. Historical examples below predate these repairs.
+
 **Owner:** Kavish
 
 The paying side of Common. Implements `SpendingAdapter` over the deployed `CommonBudget`

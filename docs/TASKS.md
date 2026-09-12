@@ -5,7 +5,7 @@ Audited base: `938696f`. Baseline: 10 interface, 17 adapter, 13 paid-service and
 | Phase | Status | Evidence / remaining work |
 | --- | --- | --- |
 | 0 | Passed locally | 30 interface tests (20 new), 17 adapter, 13 service, 20 contract tests; typecheck/build/mock demo and diff check passed. No live payment or inference claimed. |
-| 1 | Pending | Payment lifecycle/binding/reconciliation repairs; first real browser/model task |
+| 1 | Passed locally; testnet pending | 30 interface, 32 adapter, 14 service, 21 contract and 2 browser tests passed; check/build/mock demo passed. Real local smoke: Qwen3 4B passed assignment in 3 actions; 1.7B failed within 8 actions. No new network payment. Contract expiry change needs redeployment. |
 | 2 | Pending | Runner, scoring, persistent reports and operation storage |
 | 3 | Pending | Paid execution and delivery recovery; testnet secrets unavailable |
 | 4 | Pending | Memory, concurrency, reuse, durable decisions |

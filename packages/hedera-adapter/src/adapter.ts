@@ -27,6 +27,7 @@ import { BudgetClient, ContractStatus, computeParamsHash, type BoundParameters }
 import { executePaidRequest } from './payments/x402-client.js';
 import { reconcileSettlement } from './reconciliation/mirror-node.js';
 import type { DecisionNotePublisher, PublishedNote } from './hcs/decision-notes.js';
+import type { TransferIdentity } from './payments/transfer.js';
 
 /** Where a purchase key can actually be bought, and who gets paid. */
 export interface ResourceBinding {
@@ -38,7 +39,7 @@ export interface ResourceBinding {
 export type ResourceResolver = (purchaseKey: string) => ResourceBinding | undefined;
 
 export interface HederaAdapterDeps {
-  budget: BudgetClient;
+  budget: Pick<BudgetClient, 'reserve' | 'getOperation' | 'markPaymentPending' | 'recordSettlement' | 'flagSettlementUnknown' | 'release' | 'recordDecision' | 'recordDelivery' | 'releaseAfterReconciliation'>;
   resolveResource: ResourceResolver;
   network: 'testnet' | 'mainnet' | 'previewnet';
   treasuryAccountId: string;
@@ -52,6 +53,7 @@ export interface HederaAdapterDeps {
    * downstream breaks when no topic is configured.
    */
   notes?: DecisionNotePublisher;
+  fetchImpl?: typeof fetch;
 }
 
 const STATUS_MAP: Record<ContractStatus, OperationStatus> = {
@@ -81,6 +83,9 @@ export interface RememberedOperation extends BoundParameters {
   reservedAt: number;
   /** Unix seconds after which an absent transfer is conclusive. */
   expiresAt: number;
+  transfer?: TransferIdentity;
+  receipt?: PaymentReceipt;
+  content?: unknown;
 }
 
 export interface OperationRegistry {
@@ -139,6 +144,7 @@ export function createHederaSpendingAdapter(
       purchaseKey: remembered?.purchaseKey ?? onChain.purchaseKey,
       status: STATUS_MAP[onChain.status],
       amount: moneyOf(onChain.amount, remembered?.asset ?? '0.0.0'),
+      ...(remembered?.receipt ? { receipt: remembered.receipt } : {}),
     };
   }
 
@@ -150,8 +156,11 @@ export function createHederaSpendingAdapter(
       }
 
       const amount = BigInt(input.amount.amount);
-      if (amount > deps.maxPaymentAmount) {
+      if (amount <= 0n || amount > deps.maxPaymentAmount) {
         throw new CommonError('INSUFFICIENT_BUDGET', `Amount ${amount} exceeds the per-operation ceiling`);
+      }
+      if (input.amount.tokenId !== binding.asset || binding.asset !== '0.0.0' || input.amount.decimals !== 8) {
+        throw new CommonError('UNAUTHORIZED', 'This adapter requires matching HBAR payment terms');
       }
 
       const params: BoundParameters = {
@@ -163,6 +172,14 @@ export function createHederaSpendingAdapter(
         resource: binding.resource,
       };
 
+      const previous = registry.recall(input.operationId);
+      if (previous && (computeParamsHash(previous) !== computeParamsHash(params) || previous.agentId !== input.agentId)) {
+        throw new CommonError('UNAUTHORIZED', 'Conflicting operation input');
+      }
+      // Persist the original input before any contract side effect. Recovery does not
+      // reconstruct recipient/resource from an irreversible hash.
+      const provisional = previous ?? { ...params, agentId: input.agentId, reservedAt: Math.floor(Date.now() / 1000), expiresAt: 0 };
+      registry.remember(input.operationId, provisional);
       await deps.budget.reserve({
         operationId: input.operationId,
         agentId: input.agentId,
@@ -170,9 +187,9 @@ export function createHederaSpendingAdapter(
         params,
       });
 
-      const reservedAt = Math.floor(Date.now() / 1000);
-      const expiresAt = reservedAt + ttl;
-      registry.remember(input.operationId, { ...params, agentId: input.agentId, reservedAt, expiresAt });
+      const onChain = await deps.budget.getOperation(input.operationId);
+      const expiresAt = onChain.expiresAt;
+      registry.remember(input.operationId, { ...provisional, expiresAt });
 
       return {
         operationId: input.operationId,
@@ -198,16 +215,20 @@ export function createHederaSpendingAdapter(
       // Refuse to pay unless the chain still says this reservation is live and its
       // bound parameters are byte-identical to what we are about to sign.
       if (onChain.status !== ContractStatus.Reserved) {
-        if (onChain.status === ContractStatus.SettlementUnknown) {
+        if (onChain.status === ContractStatus.SettlementUnknown || onChain.status === ContractStatus.PaymentPending) {
           return { status: 'settlement_unknown', operationId };
+        }
+        if ([ContractStatus.Paid, ContractStatus.Delivered, ContractStatus.DeliveryFailed].includes(onChain.status) && bound.receipt) {
+          return { status: 'paid', receipt: bound.receipt, content: bound.content };
         }
         throw new CommonError('UNAUTHORIZED', `Operation is ${ContractStatus[onChain.status]}, not reserved`);
       }
       if (onChain.paramsHash !== computeParamsHash(bound)) {
         throw new CommonError('UNAUTHORIZED', 'Bound parameters do not match the on-chain reservation');
       }
-
-      await deps.budget.markPaymentPending(operationId);
+      if (Math.floor(Date.now() / 1000) > onChain.expiresAt) {
+        return { status: 'failed', operationId, reason: 'Reservation expired before submission' };
+      }
 
       const outcome = await executePaidRequest({
         resourceUrl: bound.resource,
@@ -215,18 +236,27 @@ export function createHederaSpendingAdapter(
         fromAccountId: deps.treasuryAccountId,
         privateKey: deps.treasuryPrivateKey,
         maxAmount: deps.maxPaymentAmount,
+        expectedAmount: bound.amount,
         expectedPayTo: bound.payTo,
         expectedAsset: bound.asset,
+        ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+        beforeSubmit: async transfer => {
+          // Atomic chain transition wins the submission race. A losing caller must
+          // never overwrite the winner's identity with its own unsent transaction.
+          await deps.budget.markPaymentPending(operationId);
+          registry.remember(operationId, { ...bound, transfer });
+        },
       });
 
       if (outcome.status === 'paid') {
-        await deps.budget.recordSettlement(operationId, outcome.transactionId, bound.amount);
         const receipt: PaymentReceipt = {
           operationId,
           transactionId: outcome.transactionId,
           amount: moneyOf(bound.amount, bound.asset),
         };
-        return { status: 'paid', receipt };
+        registry.remember(operationId, { ...registry.recall(operationId)!, receipt, content: outcome.content });
+        await deps.budget.recordSettlement(operationId, outcome.transactionId, bound.amount);
+        return { status: 'paid', receipt, content: outcome.content };
       }
 
       if (outcome.status === 'settlement_unknown') {
@@ -236,8 +266,12 @@ export function createHederaSpendingAdapter(
         return { status: 'settlement_unknown', operationId };
       }
 
-      // Verified failure: nothing was submitted. The reservation stays live so the
-      // caller may retry with the same operation id, or release it explicitly.
+      // If preparation's chain write timed out, it may have committed even though no
+      // paid HTTP request was sent. Keep that case visibly blocked for reconciliation.
+      const after = await deps.budget.getOperation(operationId);
+      if (after.status === ContractStatus.PaymentPending || after.status === ContractStatus.SettlementUnknown) {
+        return { status: 'settlement_unknown', operationId };
+      }
       return { status: 'failed', operationId, reason: outcome.reason };
     },
 
@@ -324,21 +358,28 @@ export function createHederaSpendingAdapter(
       const bound = registry.recall(operationId);
       const onChain = await deps.budget.getOperation(operationId);
 
-      if (onChain.status !== ContractStatus.SettlementUnknown) return readOperation(operationId);
+      if (onChain.status === ContractStatus.PaymentPending) await deps.budget.flagSettlementUnknown(operationId);
+      else if (onChain.status !== ContractStatus.SettlementUnknown) return readOperation(operationId);
       if (!bound) throw new CommonError('NOT_FOUND', `No bound parameters for ${operationId}; cannot reconcile`);
+      if (!bound.transfer) return readOperation(operationId);
 
       const result = await reconcileSettlement({
         mirrorNodeUrl: deps.mirrorNodeUrl,
         payTo: bound.payTo,
         payer: deps.treasuryAccountId,
         amount: bound.amount,
-        validUntilEpochSeconds: bound.expiresAt,
+        validUntilEpochSeconds: bound.transfer.validUntilEpochSeconds,
+        transactionId: bound.transfer.transactionId,
         // Without this bound, an identical transfer from an EARLIER operation would be
         // adopted as this one's payment, marking a stuck operation paid when it was not.
         notBeforeEpochSeconds: bound.reservedAt,
+        ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
       });
 
       if (result.status === 'found') {
+        registry.remember(operationId, { ...bound, receipt: {
+          operationId, transactionId: result.transactionId, amount: moneyOf(bound.amount, bound.asset),
+        } });
         await deps.budget.recordSettlement(operationId, result.transactionId, bound.amount);
       } else if (result.status === 'absent') {
         await deps.budget.releaseAfterReconciliation(operationId);

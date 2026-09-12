@@ -1,0 +1,21 @@
+{
+  "name": "@common/evaluation-runner",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "tsx --test tests/*.test.ts",
+    "demo:models": "tsx src/demo.ts"
+  },
+  "dependencies": {
+    "@common/agent-tools": "*",
+    "@common/interfaces": "*",
+    "playwright": "^1.63.0"
+  },
+  "devDependencies": {
+    "@common/mocks": "*"
+  }
+}

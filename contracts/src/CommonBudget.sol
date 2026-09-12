@@ -129,6 +129,7 @@ contract CommonBudget {
     error ConflictingParameters();
     error InvalidState(Status current);
     error ReservationNotExpired();
+    error ReservationExpired();
     error SettlementUnknownBlocksRelease();
 
     // ------------------------------------------------------------ modifiers
@@ -256,6 +257,7 @@ contract CommonBudget {
     function markPaymentPending(bytes32 operationId) external {
         Operation storage op = _requireOperator(operationId);
         if (op.status != Status.Reserved) revert InvalidState(op.status);
+        if (block.timestamp > op.expiresAt) revert ReservationExpired();
         op.status = Status.PaymentPending;
         emit PaymentPending(operationId);
     }

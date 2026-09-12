@@ -1,5 +1,7 @@
 # Payment architecture — as built
 
+2026-09-12 update: the historical implementation below was audited and repaired in Phase 1. Do not rely on the old claims of exact amount binding, automatic absence detection or complete restart recovery. Current code verifies exact terms, records the signed transaction identity before HTTP submission, and reconciles that specific transaction. Missing mirror data remains inconclusive. Durable registry integration follows in Phase 2. No new testnet verification has run.
+
 **Scope:** the money layer — `contracts/`, `packages/hedera-adapter/`, `apps/paid-service/`, `infra/`.
 **Owner:** Kavish. **Status:** implemented and verified on Hedera testnet.
 

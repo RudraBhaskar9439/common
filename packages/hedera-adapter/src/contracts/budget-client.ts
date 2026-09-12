@@ -52,6 +52,7 @@ export const ABI = [
   'error ConflictingParameters()',
   'error InvalidState(uint8 current)',
   'error ReservationNotExpired()',
+  'error ReservationExpired()',
   'error SettlementUnknownBlocksRelease()',
 ];
 
