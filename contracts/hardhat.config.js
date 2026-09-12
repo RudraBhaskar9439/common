@@ -1,5 +1,6 @@
 // Loads contracts/.env, which is git-ignored. Shell variables still win over the file.
 require('dotenv').config();
+require('dotenv').config({ path: require('node:path').join(__dirname, '../.env') });
 require('@nomicfoundation/hardhat-toolbox');
 
 /**

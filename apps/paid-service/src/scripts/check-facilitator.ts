@@ -8,12 +8,15 @@
  *
  * Read-only: one GET. No payment, no key, no chain write.
  */
+import { fileURLToPath } from 'node:url';
+import { loadEnvFileIfPresent } from '../config.js';
+loadEnvFileIfPresent(fileURLToPath(new URL('../../../../.env', import.meta.url)));
 const baseUrl = (process.env['BLOCKY402_FACILITATOR_URL'] ?? 'https://api.testnet.blocky402.com').replace(/\/$/, '');
 
 async function main(): Promise<void> {
   console.log(`GET ${baseUrl}/supported\n`);
 
-  const response = await fetch(`${baseUrl}/supported`);
+  const response = await fetch(`${baseUrl}/supported`, { signal: AbortSignal.timeout(15000), redirect: 'error' });
   const text = await response.text();
 
   if (!response.ok) {
@@ -38,7 +41,7 @@ async function main(): Promise<void> {
   const hedera = JSON.stringify(parsed).match(/hedera[^"]*/gi);
   console.log('\n--- what to look for ---');
   console.log(`hedera mentions: ${hedera ? [...new Set(hedera)].join(', ') : 'NONE — hedera may not be supported here'}`);
-  console.log('Copy the exact network identifier and the feePayer account into apps/paid-service/.env');
+  console.log('Copy the exact network identifier and the feePayer account into root .env');
 }
 
 main().catch((err: unknown) => {

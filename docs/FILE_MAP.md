@@ -1,6 +1,6 @@
 # File map and ownership
 
-Current implementation: Codex acts across modules under Rudra's direction while teammates are paused. Planned additions: packages/evaluation-runner for model/browser execution; packages/memory-client for a database-backed MemoryReader. Graph deferred. Evaluation types: packages/interfaces/src/evaluation.ts. Fingerprinting: packages/agent-tools/src/evaluation-key.ts.
+Current implementation: Codex acts across modules under Rudra's direction while teammates are paused and pushes tested phases to main. Implemented: packages/evaluation-runner for model/browser execution; packages/memory-client for a database-backed MemoryReader. Graph deferred. Evaluation types: packages/interfaces/src/evaluation.ts. Fingerprinting: packages/agent-tools/src/evaluation-key.ts.
 
 ```text
 common/
@@ -13,6 +13,8 @@ common/
 │   ├── mocks/                 Local fixtures behind the interfaces
 │   ├── agent-tools/           Rudra — agent-facing functions
 │   ├── result-store/          Rudra — storage providers and retrieval
+│   ├── evaluation-runner/     Open-model inference, controlled app, browser grading
+│   ├── memory-client/         Scoped SQLite discovery and observed counters
 │   ├── graph-client/          Aditya — queries and response mapping
 │   └── hedera-adapter/        Kavish — contracts, payments, HCS, reconciliation
 ├── contracts/                 Kavish — Solidity src, test, script, ABI exports
@@ -21,8 +23,8 @@ common/
 ├── fixtures/                  Scenario descriptions, event and result examples
 ├── tests/
 │   ├── interfaces/            Consumer behavior using controlled fixtures
-│   ├── integration/           Cross-component tests, not implemented yet
-│   └── e2e/                   Product journeys, not implemented yet
+│   ├── integration/           Workflow, API access, recovery and registry tests
+│   └── e2e/                   Chromium dashboard journey with labeled fixtures
 ├── docs/                      Plan, architecture, interfaces and task tracking
 ├── scripts/                   Repository-level maintenance helpers
 ├── deliverables/              Formatted build plan
@@ -43,7 +45,7 @@ common/
 | Agent behavior | apps/orchestrator/src/agents |
 | Persistent operation state and wait/resume | apps/orchestrator/src/workflows |
 | Agent-callable reusable tools | packages/agent-tools/src/tools |
-| UI decision card | apps/web/src/features/decisions |
+| UI dashboard, report and decision cards | apps/web/public/app.js, index.html, style.css |
 | Object storage integration | packages/result-store/src/providers |
 | Hosting or deploy script | infra/deploy or infra/scripts |
 

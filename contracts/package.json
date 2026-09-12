@@ -8,7 +8,8 @@
     "test": "hardhat test",
     "abi": "node script/export-abi.js",
     "deploy:testnet": "hardhat run script/deploy.js --network hederaTestnet",
-    "seed:testnet": "hardhat run script/seed-testnet.js --network hederaTestnet"
+    "seed:testnet": "hardhat run script/seed-testnet.js --network hederaTestnet",
+    "prepare:testnet": "hardhat run script/prepare-evaluation-workspace.js --network hederaTestnet"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

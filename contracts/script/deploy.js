@@ -5,6 +5,7 @@
 const hre = require('hardhat');
 
 async function main() {
+  if (hre.network.name !== 'hederaTestnet' || process.env.CONFIRM_TESTNET_PAYMENT !== 'yes' || (await hre.ethers.provider.getNetwork()).chainId !== 296n) throw new Error('Deployment requires explicit testnet transaction authorization');
   const [deployer] = await hre.ethers.getSigners();
   if (!deployer) throw new Error('No signer. Set HEDERA_EVM_PRIVATE_KEY in the environment.');
 
@@ -25,7 +26,7 @@ async function main() {
   console.log(`abi:         contracts/abi/CommonBudget.json`);
 }
 
-main().catch((err) => {
-  console.error(err);
+main().catch(() => {
+  console.error('Deployment failed. Check testnet authorization and local configuration.');
   process.exitCode = 1;
 });

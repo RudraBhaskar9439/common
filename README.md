@@ -1,58 +1,61 @@
 # Common
 
-Shared spending memory for agents evaluating open models. Run a bounded browser evaluation, inspect measured results, and reuse a compatible report before purchasing another run.
+Shared spending memory for agents choosing open models. Buy one bounded browser evaluation, inspect the evidence, and let another agent reuse the same compatible report before running it again.
 
-**Status: Phase 2 passed locally.** Hedera contracts, Blocky402 payments and HCS publication exist with historical testnet evidence. Recovery repairs, the model runner, durable storage and product UI are tracked in [the phase plan](docs/BUILD_PLAN.md). Graph is deferred. The contract accounts for reservations; it does not custody funds.
+**Working locally:** two open models, five browser tasks, durable reports and browser artifacts, shared acquire/reuse workflow, dashboard, recovery and tests. Hedera x402 evaluation payments and HCS are implemented but **the new evaluation flow has not yet been verified on testnet**. Graph is deferred. [Observed evidence](docs/VERIFICATION.md) · [Phase tracker](docs/TASKS.md) · [Runbook](docs/ENVIRONMENT.md).
 
-## Start in five minutes
+## Run locally — no paid services
 
-Use Node.js 24 LTS (the version in `.nvmrc`) and npm.
+Use Node 24 LTS, npm and [Ollama](https://ollama.com/). The tested development machine is an Apple M5 with 16 GiB RAM. Model downloads need several GB; inference runs on your computer.
 
 ```sh
-nvm use
 npm ci
-npm run demo:mock
-npm run check
+npx playwright install chromium
+ollama pull qwen3:1.7b
+ollama pull qwen3:4b
+npm run preflight
+npm run dev
 ```
 
-The demo finds an existing fixture purchase, retrieves its result, and prints a reuse decision. It needs no credentials. It does not execute a payment or prove concurrency safety.
+Ollama must be running (`ollama serve` if needed). Open **http://127.0.0.1:3000**. Select Agent A and click **Find or run evaluation**, inspect the ten task outcomes, then **Ask Agent B to reuse**. Both requests share one report. **Run fresh measurement** explicitly creates another evaluation. Local mode sends no payments or HCS messages.
 
-## Who codes where
+The model chooses browser actions against our controlled support-desk app. Deterministic checks inspect final browser state, including fields that must remain unchanged. This evaluates inference and tool use; it does not resell publicly available data. Reports include model digests, quantization, runtime identity, task outcomes, latency, tokens, screenshots and traces. A small model failing a task is useful measured evidence.
 
-| Person | Primary folders | Owns |
-| --- | --- | --- |
-| Aditya | `subgraph/`, `packages/graph-client/` | Graph schema, mappings, live reads, discovery, analytics |
-| Kavish | `contracts/`, `packages/hedera-adapter/`, `apps/paid-service/`, `infra/` | Budget enforcement, payments, HCS, gated service, deployment |
-| Rudra | `apps/web/`, `apps/orchestrator/`, `packages/agent-tools/`, `packages/result-store/` | Product, agents, workflows, storage, integration |
-| Rudra coordinates team review | `packages/interfaces/`, `packages/mocks/`, root configuration, `fixtures/` | Shared boundaries, examples, development support |
+## What was measured
 
-Read [the full file map](docs/FILE_MAP.md), [team workflow](CONTRIBUTING.md), and [phase plan](docs/BUILD_PLAN.md) before starting. Every owned module has its own README.
+One actual local comparison ran two separate evaluations in 59.5 seconds; the shared path ran one evaluation and one report retrieval in 29.9 seconds. It avoided ten model/task executions and had a 50% reuse rate. These are single-machine observations, not production speed or HBAR savings claims. The shared report recorded Qwen3 1.7B at 2/5 tasks passed and Qwen3 4B at 4/5. See [verification limits](docs/VERIFICATION.md).
 
-## Architecture
+```sh
+npm ci --prefix contracts
+npm run test:all
+npm run measure:reuse
+```
+
+Tests use clearly labeled fixtures where applicable. `measure:reuse` runs actual local inference and writes evidence under ignored `.common-data/`. Reports and recovery state persist there; preserve that directory between restarts.
+
+## Architecture and trust
 
 ```text
-Web / agents → orchestrator → spending adapter → controlled payment → paid service
-                    ↓                 ↓
-              result store       contract events + HCS notes
-                    ↑                 ↓
-                    └──── durable memory discovery (Graph deferred)
+Dashboard / two agent clients → orchestrator → shared report discovery
+                                   ↓ miss             ↑ reuse
+                              durable operation → result store
+                                   ↓ testnet mode
+                              budget reservation → x402 evaluation service
+                                   ↓                       ↓
+                              Hedera transfer         Ollama + browser
+                                   ↓
+                           HCS decision + contract event
 ```
 
-Graph is a read layer, not spending authority. Every acquisition must pass an authoritative reservation check. HCS is an audit record, not proof that the recorded explanation is true. Neither empty indexed results nor a missing note may trigger an automatic repeat payment.
+A report can be reused only within the workspace, for the exact versioned configuration, while fresh, intact and successfully delivered. Reuse counters increment after retrieval and validation. SQLite supports discovery and local coordination; the contract authorizes real spending. The contract is an accounting ledger, **not a vault**: the operator holds the treasury key. Unknown settlement keeps the reservation claimed; recovery checks the original transaction without submitting a replacement payment. Delivery and payment are distinct outcomes.
 
-## Working independently
+The application is a local, single-operator demo bound to loopback, with one worker per database. It is not a hosted multi-tenant service. [Testnet setup and recovery](docs/ENVIRONMENT.md) describes the remaining verification steps. Historical dataset receipts do not prove payment for this new service.
 
-Develop against `@common/interfaces` and use `@common/mocks` until live adapters are ready. The orchestrator owns connecting implementations; components must not import each other's private source files. Do not silently change shared fields or commit service credentials.
+## Find the code
 
-## Project documents
+- [File map](docs/FILE_MAP.md), [team workflow](CONTRIBUTING.md), [decisions](docs/DECISIONS.md)
+- [Evaluation runner](packages/evaluation-runner/README.md), [orchestrator](apps/orchestrator/README.md), [web](apps/web/README.md)
+- [Hedera adapter](packages/hedera-adapter/README.md), [paid service](apps/paid-service/README.md), [contracts](contracts/README.md)
+- [Demo script and submission work](docs/DEMO.md), [phase plan](docs/BUILD_PLAN.md)
 
-- [Architecture and trust boundaries](docs/ARCHITECTURE.md)
-- [Interface draft and review checklist](docs/INTERFACES.md)
-- [Tasks and acceptance evidence](docs/TASKS.md)
-- [Environment setup](docs/ENVIRONMENT.md)
-- [Decision log](docs/DECISIONS.md)
-- [Demo and submission](docs/DEMO.md)
-- [Individual AI master prompts](docs/prompts/README.md)
-- [Formatted build plan](deliverables/Common_ETHOnline_2026_Build_Plan.docx)
-
-This repository starts private as requested. Revisit visibility and licensing before submission; the sponsor criteria previously reviewed require public source. Do not publish automatically.
+Rudra authorized tested phase commits directly on `main`. The repository remains private. Public source, licensing, hosted access and final submission require a separate release decision.

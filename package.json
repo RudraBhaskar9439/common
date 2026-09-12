@@ -22,6 +22,7 @@
     "service:evaluations": "npm run start:evaluations --workspace @common/paid-service",
     "test:e2e": "tsx --test tests/e2e/*.test.ts",
     "measure:reuse": "tsx apps/orchestrator/src/measure-reuse.ts",
+    "preflight": "tsx apps/orchestrator/src/preflight.ts",
     "test:all": "npm run check && npm run demo:mock && npm test --workspaces --if-present && npm run test:e2e && npm test --prefix contracts"
   },
   "devDependencies": {

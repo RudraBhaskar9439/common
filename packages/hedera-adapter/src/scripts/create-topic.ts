@@ -14,10 +14,13 @@
  */
 import { Client, PrivateKey, TopicCreateTransaction } from '@hashgraph/sdk';
 import { loadAdapterConfig, loadEnvFileIfPresent } from '../config.js';
+import { fileURLToPath } from 'node:url';
 
 loadEnvFileIfPresent();
+loadEnvFileIfPresent(fileURLToPath(new URL('../../../../.env', import.meta.url)));
 
 async function main(): Promise<void> {
+  if (process.env['HEDERA_NETWORK'] !== 'testnet' || process.env['CONFIRM_TESTNET_PAYMENT'] !== 'yes') throw new Error('Topic creation requires explicit testnet transaction authorization');
   const existing = process.env['HCS_TOPIC_ID'];
   if (existing) {
     console.log(`HCS_TOPIC_ID is already set to ${existing}.`);
@@ -61,7 +64,7 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error('Could not create the topic:', err instanceof Error ? err.message : err);
+main().catch(() => {
+  console.error('Could not create the topic. Check testnet authorization and local configuration.');
   process.exitCode = 1;
 });

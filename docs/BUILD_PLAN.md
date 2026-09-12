@@ -27,4 +27,4 @@ Persist payment terms and transaction identity before submission. Never release 
 
 ## Deferred
 
-Graph indexing, marketplaces, arbitrary websites or user code, training, mainnet, token streaming and paid hosting. No automatic publication, PR creation or merge is included in push authorization.
+Graph indexing, marketplaces, arbitrary websites or user code, training, mainnet, token streaming and paid hosting. Rudra subsequently authorized direct main-branch work. Public visibility changes and submission publication remain separate decisions.

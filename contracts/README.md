@@ -1,5 +1,7 @@
 # contracts
 
+**Current evaluation setup:** follow [the runbook](../docs/ENVIRONMENT.md). The expiry-fixed source needs a fresh deployment; the address and dataset receipts below are historical. `prepare:testnet` idempotently configures the evaluation workspace and both agents without seed settlements. Deployment/setup require `CONFIRM_TESTNET_PAYMENT=yes` and testnet. Contract tests now include this setup and reservation expiry.
+
 **Owner:** Kavish
 
 `CommonBudget` — workspace budget authority and atomic reservation ledger, and the event source for the subgraph.

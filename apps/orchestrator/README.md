@@ -18,7 +18,7 @@ Use `@common/interfaces` for shared contracts. Do not import another workspace's
 
 ## Current state
 
-Small scaffold implementation exists; see the root README for its limits. Run `npm run check` from the repository root. The orchestrator demo uses fixtures only.
+The application server and evaluation workflow are implemented. Run `npm run dev` from the repository root. The dashboard defaults to actual local Ollama inference; `npm run demo:mock` remains a separate labeled fixture demo. `npm run preflight` checks local readiness without signing transactions. See the root runbook for testnet configuration and remaining verification.
 
 ## Handoff
 
