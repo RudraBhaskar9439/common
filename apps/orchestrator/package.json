@@ -9,7 +9,8 @@
     "@common/agent-tools": "*",
     "@common/hedera-adapter": "*",
     "@common/result-store": "*",
-    "@common/evaluation-runner": "*"
+    "@common/evaluation-runner": "*",
+    "@common/memory-client": "*"
   },
   "exports": {
     ".": "./src/index.ts"

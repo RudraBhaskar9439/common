@@ -18,6 +18,7 @@ import { Client, PrivateKey, TopicId, TopicMessageSubmitTransaction } from '@has
 import type { DecisionRecord } from '@common/interfaces';
 
 export interface PublishedNote {
+  decisionId?: string;
   sequenceNumber: string;
   consensusTimestamp: string;
   topicId: string;
@@ -87,9 +88,13 @@ export function createDecisionNotePublisher(config: PublisherConfig): DecisionNo
       .setMessage(buildNote(record))
       .execute(client);
     const receipt = await response.getReceipt(client);
+    let consensusTimestamp = '';
+    try { consensusTimestamp = (await response.getRecord(client)).consensusTimestamp.toString(); }
+    catch { /* Publication is confirmed; consensus timestamp unavailable, never substitute validStart. */ }
     return {
+      decisionId: record.decisionId,
       sequenceNumber: receipt.topicSequenceNumber?.toString() ?? '',
-      consensusTimestamp: response.transactionId?.validStart?.toString() ?? '',
+      consensusTimestamp,
       topicId: config.topicId,
     };
   }
