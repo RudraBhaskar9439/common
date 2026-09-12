@@ -1,6 +1,6 @@
 # Team workflow
 
-Current exception authorized by Rudra on 2026-09-12: Codex implements across modules while teammates are paused and pushes tested phases to codex/open-model-evaluations. No merge, PR or visibility change is authorized. Original ownership remains the review map. See docs/DECISIONS.md.
+Current exception authorized by Rudra on 2026-09-12: Codex implements across modules while teammates are paused and pushes tested phases directly to main. Rudra explicitly superseded the earlier branch-only restriction. No PR or visibility change is authorized. Original ownership remains the review map. See docs/DECISIONS.md.
 
 ## Ownership
 

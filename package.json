@@ -2,7 +2,7 @@
   "name": "common",
   "version": "0.0.0",
   "private": true,
-  "description": "Shared spending memory for AI agents \u2014 ETHOnline 2026",
+  "description": "Shared spending memory for AI agents — ETHOnline 2026",
   "type": "module",
   "engines": {
     "node": ">=24 <27"
@@ -19,11 +19,19 @@
     "test": "tsx --test tests/interfaces/*.test.ts tests/integration/*.test.ts",
     "check": "npm run typecheck && npm run build && npm test",
     "start": "npm start --workspace @common/orchestrator",
-    "service:evaluations": "npm run start:evaluations --workspace @common/paid-service"
+    "service:evaluations": "npm run start:evaluations --workspace @common/paid-service",
+    "test:e2e": "tsx --test tests/e2e/*.test.ts",
+    "measure:reuse": "tsx apps/orchestrator/src/measure-reuse.ts",
+    "test:all": "npm run check && npm run demo:mock && npm test --workspaces --if-present && npm run test:e2e && npm test --prefix contracts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "tsx": "^4.20.0",
     "typescript": "~5.9.3"
+  },
+  "overrides": {
+    "protobufjs@<8": "7.6.6",
+    "protobufjs@>=8": "8.8.0",
+    "@grpc/grpc-js": "1.14.4"
   }
 }

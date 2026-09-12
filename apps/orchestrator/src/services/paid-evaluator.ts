@@ -40,7 +40,11 @@ export function createPaidEvaluator(database: CommonDatabase, serviceUrl: string
       if (!remote.jobId) {
         const prepared = await request('/jobs', remote.token, { method: 'POST', body: JSON.stringify({ operationId: operation.operationId, workspaceId: operation.workspaceId, accessToken: remote.token, spec: operation.spec }) });
         const terms = prepared['requirements'] as { resource: string; payTo: string; amount: string; asset: string; network: string };
-        if (new URL(terms.resource).origin !== base.origin || terms.network !== 'hedera:testnet' || terms.asset !== '0.0.0') throw new Error('Provider returned unsupported payment terms');
+        const jobId = prepared['jobId'];
+        if (typeof jobId !== 'string' || !/^[a-f0-9-]{36}$/.test(jobId) ||
+          terms.resource !== new URL(`/jobs/${jobId}/execute`, base).href ||
+          !/^0\.0\.\d+$/.test(terms.payTo) || !/^[1-9]\d*$/.test(terms.amount) ||
+          terms.network !== 'hedera:testnet' || terms.asset !== '0.0.0') throw new Error('Provider returned unsupported payment terms');
         remote = { ...remote, jobId: String(prepared['jobId']), resource: terms.resource, payTo: terms.payTo, amount: terms.amount, asset: terms.asset };
         database.set('remote-jobs', operation.operationId, remote);
       }

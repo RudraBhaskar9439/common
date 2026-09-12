@@ -3,7 +3,7 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { CommonDatabase } from '@common/result-store';
-import { createEvaluationRunner, createOllamaClient, assertRunnableSpec } from '@common/evaluation-runner';
+import { createEvaluationRunner, verifyLocalEvaluationSpec } from '@common/evaluation-runner';
 import { createEvaluationJobs } from './evaluation-jobs.js';
 import { FacilitatorClient, encodeHeader } from './payment/x402.js';
 import { loadConfig, loadEnvFileIfPresent } from './config.js';
@@ -69,7 +69,7 @@ export async function startEvaluationService() {
     publicUrl: process.env['PUBLIC_SERVICE_URL'] ?? `http://127.0.0.1:${config.port}`,
     facilitator: new FacilitatorClient(config.facilitatorUrl),
     runner: createEvaluationRunner({ artifactDir: join(dir, 'service-artifacts') }),
-    verifySpec: async spec => { assertRunnableSpec(spec); await createOllamaClient().verify(spec.models); },
+    verifySpec: verifyLocalEvaluationSpec,
   });
   const handler = createJobHandler(jobs, process.env['HEDERA_MIRROR_NODE_URL'] ?? 'https://testnet.mirrornode.hedera.com', join(dir, 'service-artifacts'));
   const server = createServer((req,res) => { void handler(req,res); });

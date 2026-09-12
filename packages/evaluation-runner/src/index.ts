@@ -3,6 +3,8 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
+import { cpus, totalmem, release } from 'node:os';
+import { createRequire } from 'node:module';
 import { BROWSER_TASK_IDS, validateEvaluationSpec, type BrowserAction, type EvaluationModel, type EvaluationReport, type EvaluationRunner, type EvaluationSpec, type EvaluationStep, type TaskEvaluation } from '@common/interfaces';
 import { evaluationSpecHash } from '@common/agent-tools';
 import { expectedState, supportDeskHtml, TASKS, type DeskState } from './application.js';
@@ -69,12 +71,29 @@ export async function resolveModels(baseUrl = 'http://127.0.0.1:11434'): Promise
 export async function defaultEvaluationSpec(): Promise<EvaluationSpec> {
   const spec: EvaluationSpec = {
     schemaVersion: 1, suiteId: 'support-desk', suiteVersion: '1', applicationVersion: '1', runnerVersion: '1',
-    promptVersion: '3', toolVersion: '2', measurementContext: `${process.platform}-${process.arch}-local`, generation: 'initial',
+    promptVersion: '3', toolVersion: '2', measurementContext: await localMeasurementContext(), generation: 'initial',
     models: await resolveModels(), taskIds: [...BROWSER_TASK_IDS], repetitions: 1, maxSteps: 8,
     maxTaskDurationMs: 120000, maxOutputTokens: 256, contextTokens: 4096, temperature: 0, seed: 42,
   };
   validateEvaluationSpec(spec);
   return spec;
+}
+
+/** Bind latency/usage evidence to the serving machine and inference/browser runtime. */
+export async function localMeasurementContext(): Promise<string> {
+  const response = await fetch('http://127.0.0.1:11434/api/version', { signal: AbortSignal.timeout(10000) });
+  if (!response.ok) throw new Error('Cannot identify local inference runtime');
+  const data = await response.json() as { version?: string };
+  if (!data.version) throw new Error('Ollama version unavailable');
+  const playwright = createRequire(import.meta.url)('playwright/package.json') as { version: string };
+  const identity = [process.platform, process.arch, release(), cpus()[0]?.model, cpus().length, totalmem(), process.version, data.version, playwright.version];
+  return `local-sha256:${createHash('sha256').update(JSON.stringify(identity)).digest('hex')}`;
+}
+
+export async function verifyLocalEvaluationSpec(spec: EvaluationSpec): Promise<void> {
+  assertRunnableSpec(spec);
+  if (spec.measurementContext !== await localMeasurementContext()) throw new Error('Evaluation hardware/runtime context changed; request the current configuration');
+  await createOllamaClient().verify(spec.models);
 }
 
 async function observe(page: Page): Promise<string> {
@@ -111,6 +130,7 @@ export function createEvaluationRunner(options: { artifactDir: string; client?: 
   return {
     async run({ jobId, spec, signal }) {
       assertRunnableSpec(spec);
+      if (client.source === 'live' && spec.measurementContext !== await localMeasurementContext()) throw new Error('Evaluation hardware/runtime context changed');
       await client.verify(spec.models);
       await mkdir(options.artifactDir, { recursive: true });
       const startedAt = new Date().toISOString();

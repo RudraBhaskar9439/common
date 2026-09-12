@@ -3,6 +3,7 @@ import { CommonError, type EvaluationSpec, type EvaluationReport, type PaymentRe
 import { evaluationPurchaseKey, validateEvaluationReport } from '@common/agent-tools';
 import { CommonDatabase, createResultStore } from '@common/result-store';
 import { createMemoryReader, type ObservedCompletion } from '@common/memory-client';
+import { safeErrorMessage } from '../services/errors.js';
 
 export interface EvaluationOperation {
   operationId: string; workspaceId: string; agentId: string; purchaseKey: string; spec: EvaluationSpec;
@@ -22,7 +23,7 @@ export function createEvaluationWorkflow(options: { database: CommonDatabase; wo
   const { database: db, workspaceId, executor } = options;
   const resultStore = createResultStore({ database: db, workspaceId });
   const memory = createMemoryReader(db, workspaceId);
-  let worker: Promise<void> | undefined; let closed = false; let publishing = false;
+  let worker: Promise<void> | undefined; let closed = false; let publication: Promise<void> | undefined;
   const scoped = (id: string) => JSON.stringify([workspaceId, id]);
   function operation(id: string) {
     const row = db.get<EvaluationOperation>('evaluations', id);
@@ -87,7 +88,7 @@ export function createEvaluationWorkflow(options: { database: CommonDatabase; wo
         } catch (err) {
           const current = operation(row.operationId);
           const uncertain = err instanceof CommonError && err.code === 'SETTLEMENT_UNKNOWN';
-          db.set('evaluations', row.operationId, { ...current, status: uncertain ? 'settlement_unknown' : 'failed', error: err instanceof Error ? err.message : 'Evaluation failed', updatedAt: new Date().toISOString() });
+          db.set('evaluations', row.operationId, { ...current, status: uncertain ? 'settlement_unknown' : 'failed', error: safeErrorMessage(err), updatedAt: new Date().toISOString() });
         }
       }
     })().finally(() => { worker = undefined; });
@@ -137,23 +138,25 @@ export function createEvaluationWorkflow(options: { database: CommonDatabase; wo
       schedule();
     },
     async flushDecisions() {
-      if (publishing || !executor.publishDecision) return;
-      publishing = true;
-      try {
+      if (publication) return publication;
+      if (closed || !executor.publishDecision) return;
+      const publish = executor.publishDecision;
+      publication = (async () => {
         for (const { id, value } of db.list<DecisionRecord>('decision-outbox')) {
           if (value.workspaceId !== workspaceId) continue;
           try {
-            const receipt = await executor.publishDecision(value); db.set('decision-receipts', id, receipt);
+            const receipt = await publish(value); db.set('decision-receipts', id, receipt);
             if (receipt.hcsStatus === 'confirmed' && receipt.eventStatus === 'confirmed') db.remove('decision-outbox', id);
           } catch { /* Durable outbox remains; no payment is reachable from this loop. */ }
         }
-      } finally { publishing = false; }
+      })().finally(() => { publication = undefined; });
+      return publication;
     },
     resume() {
       for (const { value: row } of db.list<EvaluationOperation>('evaluations')) if (row.workspaceId === workspaceId && row.mode === executor.mode && ['running', 'settlement_unknown'].includes(row.status)) db.set('evaluations', row.operationId, { ...row, status: 'queued' });
       schedule();
     },
     async idle() { await worker; },
-    async close() { closed = true; await worker; },
+    async close() { closed = true; await worker; await publication; },
   };
 }

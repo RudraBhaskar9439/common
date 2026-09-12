@@ -35,3 +35,15 @@ for (const [label, mutate] of [
 test('mock storage keeps workspace keys separate', async () => {
   await assert.rejects(createMockResultStore().get({ id: 'mock-result-1', workspaceId: 'other' }), { code: 'NOT_FOUND' });
 });
+
+test('discovery reads subsequent pages and fails closed on cursor loops', async () => {
+  let calls = 0;
+  const reader: MemoryReader = { ...mockMemoryReader, async findPurchases(q) {
+    calls++;
+    return { items: q.cursor ? [fixturePurchase] : [], nextCursor: q.cursor ? null : 'page-2', index: { status: 'unknown', indexedBlock: null } };
+  } };
+  assert.equal((await findReusablePurchase(reader, query, requirements))?.operationId, fixturePurchase.operationId);
+  assert.equal(calls, 2);
+  const looping: MemoryReader = { ...reader, async findPurchases() { return { items: [], nextCursor: 'same', index: { status: 'unknown', indexedBlock: null } }; } };
+  await assert.rejects(findReusablePurchase(looping, query, requirements), /repeated cursor/);
+});

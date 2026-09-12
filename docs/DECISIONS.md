@@ -1,5 +1,9 @@
 # Decision log
 
+## 2026-09-12 — Continue directly on main
+
+Rudra explicitly requested all work on main. The tested Phase 0–5 commits were fast-forwarded to main without conflicts; subsequent tested phases commit and push there. This supersedes the earlier branch-only restriction. Repository visibility stays private; no PR or paid infrastructure is implied.
+
 ## 2026-09-12 — Open-model evaluation MVP
 
 Owner: Rudra. Rudra requested implementation across all modules, confirmed teammates are paused, authorized a GitHub push after each tested phase, and set a tomorrow-morning deadline. Paid hosting and paid inference are not authorized. Repository visibility remains private.

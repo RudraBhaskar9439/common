@@ -10,6 +10,7 @@ import type { DecisionRecord, DecisionReceipt, EvaluationSpec, TaskEvaluation } 
 import { readWebAsset } from '@common/web';
 import { createEvaluationWorkflow, type EvaluationExecutor } from './workflows/evaluation.js';
 import { createPaidEvaluator } from './services/paid-evaluator.js';
+import { safeErrorMessage } from './services/errors.js';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 function json(res: ServerResponse, status: number, body: unknown) {
@@ -57,7 +58,7 @@ export async function startApplication(options: { port?: number; dataDir?: strin
       if (cookie.length !== session.length || !timingSafeEqual(Buffer.from(cookie), Buffer.from(session))) return json(res, 401, { error: 'Open the local application to start a session' });
       if (path === '/api/state' && req.method === 'GET') {
         let spec: EvaluationSpec | undefined; let readinessError: string | undefined;
-        try { spec = await specProvider(); } catch (err) { readinessError = err instanceof Error ? err.message : 'Models unavailable'; }
+        try { spec = await specProvider(); } catch (err) { readinessError = safeErrorMessage(err); }
         const decisions = db.list<DecisionRecord>('decisions').map(r => ({ ...r.value, publication: (() => {
           const receipt = db.get<DecisionReceipt>('decision-receipts', r.id);
           return receipt?.hcsStatus === 'confirmed' ? `HCS sequence ${receipt.hcsSequenceNumber ?? 'confirmed'}` : 'HCS publication pending';
@@ -97,7 +98,7 @@ export async function startApplication(options: { port?: number; dataDir?: strin
         res.writeHead(200, { 'content-type': artifactMatch[3] === 'png' ? 'image/png' : 'application/zip', 'cache-control': 'private, no-store' }); res.end(bytes); return;
       }
       json(res, 404, { error: 'Not found' });
-    } catch (err) { json(res, 400, { error: err instanceof Error ? err.message : 'Request failed' }); }
+    } catch (err) { json(res, 400, { error: safeErrorMessage(err) }); }
   };
   const server = createServer((req,res) => { void handler(req,res); });
   await new Promise<void>((done,reject) => { server.once('error',reject); server.listen(options.port ?? Number(process.env['COMMON_PORT'] ?? 3000), '127.0.0.1', done); });
@@ -106,6 +107,6 @@ export async function startApplication(options: { port?: number; dataDir?: strin
   workflow.resume();
   const timer = setInterval(() => { void workflow.flushDecisions(); }, 5000); timer.unref();
   console.log(`Common: ${origin} (${executor.mode}; ${executor.mode === 'local' ? 'no blockchain payments' : 'testnet payment enabled'})`);
-  return { origin, workflow, database: db, close: async () => { clearInterval(timer); server.close(); await workflow.close(); db.close(); } };
+  return { origin, workflow, database: db, close: async () => { clearInterval(timer); await new Promise<void>(done => server.close(() => done())); await workflow.close(); db.close(); } };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await startApplication();

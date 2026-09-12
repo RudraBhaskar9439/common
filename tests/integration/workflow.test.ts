@@ -84,3 +84,31 @@ test('decision retries survive workflow replacement and cannot execute payments'
   try { await restored.flushDecisions(); await restored.flushDecisions(); assert.equal(publications, 1); assert.equal(executions, 1); assert.equal(db.list('decision-outbox').length, 0); }
   finally { await restored.close(); db.close(); }
 });
+
+test('shutdown waits for an in-flight decision publication before closing storage', async () => {
+  const db = new CommonDatabase(':memory:');
+  let finish!: () => void; const gate = new Promise<void>(resolve => { finish = resolve; });
+  const workflow = createEvaluationWorkflow({ database: db, workspaceId: 'w', executor: {
+    mode: 'local', execute: async op => ({ report: fixtureReport(op.operationId,op.spec) }),
+    publishDecision: async d => { await gate; return { decisionId: d.decisionId, hcsStatus: 'confirmed', eventStatus: 'confirmed' }; },
+  } });
+  await workflow.request({ requestId: 'a', agentId: 'agent-a', spec: fixtureEvaluationSpec }); await workflow.idle();
+  const publication = workflow.flushDecisions();
+  let closed = false; const closing = workflow.close().then(() => { closed = true; });
+  await Promise.resolve(); assert.equal(closed, false);
+  finish(); await publication; await closing;
+  assert.equal(db.list('decision-outbox').length, 0); db.close();
+});
+
+test('configuration errors cannot persist a treasury key in operation history', async () => {
+  const previous = process.env['HEDERA_PRIVATE_KEY'];
+  const fixtureKey = 'FIXTURE-NOT-A-PRIVATE-KEY';
+  process.env['HEDERA_PRIVATE_KEY'] = fixtureKey;
+  const db = new CommonDatabase(':memory:');
+  const workflow = createEvaluationWorkflow({ database: db, workspaceId: 'w', executor: { mode: 'local', execute: async () => { throw new Error(`Invalid key: ${fixtureKey}`); } } });
+  try {
+    const a = await workflow.request({ requestId: 'a', agentId: 'agent-a', spec: fixtureEvaluationSpec }); await workflow.idle();
+    assert.equal(workflow.get(a.operation.operationId).error, 'Invalid key: [redacted]');
+    assert.equal(JSON.stringify(db.list('evaluations')).includes(fixtureKey), false);
+  } finally { await workflow.close(); db.close(); if (previous === undefined) delete process.env['HEDERA_PRIVATE_KEY']; else process.env['HEDERA_PRIVATE_KEY'] = previous; }
+});
