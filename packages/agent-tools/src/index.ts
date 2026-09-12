@@ -1,5 +1,6 @@
 import type { MemoryReader, Purchase, PurchaseQuery } from '@common/interfaces';
 export { evaluationSpecHash, evaluationPurchaseKey } from './evaluation-key.js';
+export { validateEvaluationReport, summarizeEvaluation } from './report.js';
 
 /** Finds a reuse candidate only. The orchestrator still checks authorization and actual delivery. */
 export async function findReusablePurchase(

@@ -13,7 +13,8 @@
   "dependencies": {
     "@common/agent-tools": "*",
     "@common/interfaces": "*",
-    "playwright": "^1.63.0"
+    "playwright": "^1.63.0",
+    "@common/result-store": "*"
   },
   "devDependencies": {
     "@common/mocks": "*"

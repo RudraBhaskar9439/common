@@ -27,3 +27,23 @@ test('arbitrary selectors and actions cannot execute through model output', () =
   assert.throws(() => parseAction('{"action":"eval","target":"save","value":"code"}'));
   assert.throws(() => parseAction('{"action":"click","target":"body > button"}'));
 });
+
+test('all five deterministic graders accept only their intended browser changes; fixture actions', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'common-suite-'));
+  try {
+    const runner = createEvaluationRunner({ artifactDir: dir, client: {
+      source: 'fixture', verify: async () => {},
+      act: async ({ instruction, history }) => {
+        const actions = instruction.startsWith('Filter') ? [{ action: 'select', target: 'priority-filter', value: 'high' }]
+          : instruction.startsWith('Change') ? [{ action: 'click', target: 'open-43' }, { action: 'select', target: 'priority', value: 'urgent' }, { action: 'click', target: 'save' }]
+          : instruction.startsWith('Resolve') ? [{ action: 'click', target: 'open-44' }, { action: 'select', target: 'status', value: 'resolved' }, { action: 'click', target: 'save' }]
+          : instruction.startsWith('Add') ? [{ action: 'click', target: 'open-42' }, { action: 'fill', target: 'note', value: 'Customer confirmed duplicate charge' }, { action: 'click', target: 'save' }]
+          : [{ action: 'click', target: 'open-42' }, { action: 'select', target: 'team', value: 'Billing' }, { action: 'click', target: 'save' }];
+        return { content: JSON.stringify(actions[history.length]), inputTokens: 0, outputTokens: 0 };
+      },
+    } });
+    const report = await runner.run({ jobId: 'all-fixture', spec: { ...fixtureEvaluationSpec, promptVersion: '3', toolVersion: '2' } });
+    assert.equal(report.tasks.length, 10);
+    assert.ok(report.tasks.every(t => t.outcome === 'passed'));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

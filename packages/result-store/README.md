@@ -20,3 +20,7 @@ Reserved structure only, or an explicit NOT_IMPLEMENTED factory. No live integra
 ## Handoff
 
 Provide setup instructions, example configuration, relevant tests and evidence before marking the component complete.
+
+## Persistent implementation
+
+CommonDatabase uses Node built-in SQLite, WAL and FULL synchronous writes on a persistent local volume. Run npm test --workspace @common/result-store. createResultStore requires a server-authenticated workspace binding; request-supplied workspace IDs are not authentication. Result IDs are immutable. Public database helpers are internal server primitives, not exposed HTTP APIs.

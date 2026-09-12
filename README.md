@@ -2,7 +2,7 @@
 
 Shared spending memory for agents evaluating open models. Run a bounded browser evaluation, inspect measured results, and reuse a compatible report before purchasing another run.
 
-**Status: Phase 1 passed locally.** Hedera contracts, Blocky402 payments and HCS publication exist with historical testnet evidence. Recovery repairs, the model runner, durable storage and product UI are tracked in [the phase plan](docs/BUILD_PLAN.md). Graph is deferred. The contract accounts for reservations; it does not custody funds.
+**Status: Phase 2 passed locally.** Hedera contracts, Blocky402 payments and HCS publication exist with historical testnet evidence. Recovery repairs, the model runner, durable storage and product UI are tracked in [the phase plan](docs/BUILD_PLAN.md). Graph is deferred. The contract accounts for reservations; it does not custody funds.
 
 ## Start in five minutes
 

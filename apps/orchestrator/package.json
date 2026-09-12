@@ -6,6 +6,12 @@
   "dependencies": {
     "@common/interfaces": "*",
     "@common/mocks": "*",
-    "@common/agent-tools": "*"
+    "@common/agent-tools": "*",
+    "@common/hedera-adapter": "*",
+    "@common/result-store": "*",
+    "@common/evaluation-runner": "*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
   }
 }
