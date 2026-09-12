@@ -1,0 +1,13 @@
+common.EXTERNAL_IP.sslip.io {
+    request_body {
+        max_size 64KB
+    }
+    reverse_proxy 127.0.0.1:3000
+}
+
+eval.EXTERNAL_IP.sslip.io {
+    request_body {
+        max_size 64KB
+    }
+    reverse_proxy 127.0.0.1:3002
+}

@@ -38,7 +38,7 @@ export function createPaidEvaluator(database: CommonDatabase, serviceUrl: string
       let remote = database.get<RemoteJob>('remote-jobs', operation.operationId);
       if (!remote) { remote = { token: randomBytes(32).toString('base64url'), purchaseKey: operation.purchaseKey }; database.insert('remote-jobs', operation.operationId, remote); }
       if (!remote.jobId) {
-        const prepared = await request('/jobs', remote.token, { method: 'POST', body: JSON.stringify({ operationId: operation.operationId, workspaceId: operation.workspaceId, accessToken: remote.token, spec: operation.spec }) });
+        const prepared = await request('/jobs', remote.token, { method: 'POST', headers: process.env['COMMON_SERVICE_KEY'] ? { 'x-common-service-key': process.env['COMMON_SERVICE_KEY'] } : {}, body: JSON.stringify({ operationId: operation.operationId, workspaceId: operation.workspaceId, accessToken: remote.token, spec: operation.spec }) });
         const terms = prepared['requirements'] as { resource: string; payTo: string; amount: string; asset: string; network: string };
         const jobId = prepared['jobId'];
         if (typeof jobId !== 'string' || !/^[a-f0-9-]{36}$/.test(jobId) ||

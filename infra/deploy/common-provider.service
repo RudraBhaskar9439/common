@@ -1,0 +1,25 @@
+[Unit]
+Description=Common x402 open-model evaluation service
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=common-provider
+Group=common-provider
+WorkingDirectory=/opt/common
+EnvironmentFile=/etc/common/provider.env
+ExecStart=/usr/local/bin/node --import tsx apps/paid-service/src/jobs-server.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+KillSignal=SIGINT
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/common/service
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

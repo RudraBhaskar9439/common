@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,8 +22,14 @@ async function body(req: IncomingMessage) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
 }
 
-export async function startApplication(options: { port?: number; dataDir?: string; executor?: EvaluationExecutor; specProvider?: () => Promise<EvaluationSpec>; workspaceId?: string; readOnly?: boolean } = {}) {
+export async function startApplication(options: { port?: number; dataDir?: string; executor?: EvaluationExecutor; specProvider?: () => Promise<EvaluationSpec>; workspaceId?: string; readOnly?: boolean; publicOrigin?: string; operatorPassword?: string } = {}) {
   try { process.loadEnvFile(join(ROOT, '.env')); } catch { /* Optional for local mode. */ }
+  const publicOrigin = options.publicOrigin ?? process.env['COMMON_PUBLIC_ORIGIN'];
+  const operatorPassword = options.operatorPassword ?? process.env['COMMON_OPERATOR_PASSWORD'];
+  if (publicOrigin && (new URL(publicOrigin).origin !== publicOrigin || !publicOrigin.startsWith('https://') || !operatorPassword || operatorPassword.length < 24)) {
+    throw new Error('Hosted mode requires an HTTPS origin and an operator password of at least 24 characters');
+  }
+  const authHash = operatorPassword ? createHash('sha256').update(`Basic ${Buffer.from(`operator:${operatorPassword}`).toString('base64')}`).digest() : undefined;
   const dataDir = resolve(ROOT, options.dataDir ?? process.env['COMMON_DATA_DIR'] ?? '.common-data');
   const db = new CommonDatabase(join(dataDir, 'app.sqlite'));
   const workspaceId = options.workspaceId ?? process.env['COMMON_WORKSPACE_ID'] ?? 'local-demo';
@@ -42,10 +48,15 @@ export async function startApplication(options: { port?: number; dataDir?: strin
   const handler = async (req: IncomingMessage, res: ServerResponse) => {
     try {
       const host = req.headers.host;
-      const allowedHosts = [new URL(origin).host, new URL(origin).host.replace('127.0.0.1', 'localhost')];
+      const allowedOrigins = publicOrigin ? [publicOrigin] : [origin, origin.replace('127.0.0.1', 'localhost')];
+      const allowedHosts = allowedOrigins.map(o => new URL(o).host);
       if (!host || !allowedHosts.includes(host)) return json(res, 403, { error: 'Invalid host' });
       const requestOrigin = req.headers.origin;
-      if (requestOrigin && !allowedHosts.some(h => requestOrigin === `http://${h}`)) return json(res, 403, { error: 'Cross-origin requests refused' });
+      if (requestOrigin && !allowedOrigins.includes(requestOrigin)) return json(res, 403, { error: 'Cross-origin requests refused' });
+      if (authHash && !timingSafeEqual(authHash, createHash('sha256').update(req.headers.authorization ?? '').digest())) {
+        res.setHeader('www-authenticate', 'Basic realm="Common operator", charset="UTF-8"');
+        return json(res, 401, { error: 'Operator login required' });
+      }
       res.setHeader('x-content-type-options', 'nosniff'); res.setHeader('x-frame-options', 'DENY');
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");
       const url = new URL(req.url ?? '/', origin); const path = url.pathname;
@@ -54,7 +65,7 @@ export async function startApplication(options: { port?: number; dataDir?: strin
       };
       const asset = assets[path];
       if (asset && req.method === 'GET') {
-        if (path === '/') res.setHeader('set-cookie', `common_session=${session}; HttpOnly; SameSite=Strict; Path=/`);
+        if (path === '/') res.setHeader('set-cookie', `common_session=${session}; HttpOnly; SameSite=Strict; Path=/${publicOrigin ? '; Secure' : ''}`);
         res.writeHead(200, { 'content-type': asset.type, 'cache-control': 'no-store' }); res.end(await readWebAsset(asset.name)); return;
       }
       const cookie = req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith('common_session='))?.slice('common_session='.length) ?? '';

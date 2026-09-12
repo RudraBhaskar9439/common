@@ -8,9 +8,33 @@ import { fixtureEvaluationSpec } from '@common/mocks';
 import { createEvaluationJobs } from '../src/evaluation-jobs.js';
 import { encodeHeader } from '../src/payment/x402.js';
 import type { EvaluationReport, EvaluationRunner } from '@common/interfaces';
+import { createServer } from 'node:http';
+import { createJobHandler } from '../src/jobs-server.js';
 
 const config = { port: 0, facilitatorUrl: 'http://fixture.invalid', network: 'hedera:testnet', payTo: '0.0.10', priceAmount: '50000000', priceAsset: '0.0.0', maxTimeoutSeconds: 120, feePayer: '0.0.20' };
 const token = 'fixture-access-token-not-a-key';
+
+test('hosted admission refuses unauthenticated preparation before storing jobs; x402 still gates execution', async () => {
+  const { db, jobs, count } = setup();
+  const key = 'fixture-provider-admission-key';
+  const handler = createJobHandler(jobs, 'http://fixture.invalid', undefined, key);
+  const server = createServer((req,res) => { void handler(req,res); });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address(); if (!address || typeof address === 'string') throw new Error('No port');
+  const origin = `http://127.0.0.1:${address.port}`;
+  const body = JSON.stringify({ workspaceId: 'w', operationId: 'op-http', accessToken: token, spec: fixtureEvaluationSpec });
+  try {
+    assert.equal((await fetch(`${origin}/health`)).status, 200);
+    assert.equal((await fetch(`${origin}/jobs`, { method: 'POST', body })).status, 403);
+    assert.equal(db.list('service-jobs').length, 0);
+    const prepared = await fetch(`${origin}/jobs`, { method: 'POST', body, headers: { 'x-common-service-key': key } });
+    assert.equal(prepared.status, 201);
+    const job = await prepared.json() as { jobId: string };
+    assert.equal((await fetch(`${origin}/jobs/${job.jobId}/execute`)).status, 402);
+    assert.equal((await fetch(`${origin}/jobs/${job.jobId}/report`)).status, 403);
+    assert.deepEqual(count(), { payments: 0, runs: 0 });
+  } finally { await new Promise<void>(resolve => server.close(() => resolve())); await jobs.close(); db.close(); }
+});
 function setup(uncertain = false, database?: CommonDatabase) {
   const db = database ?? new CommonDatabase(':memory:'); let payments = 0; let runs = 0;
   const runner: EvaluationRunner = { async run({ jobId, spec }): Promise<EvaluationReport> {

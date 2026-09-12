@@ -8,6 +8,34 @@ import { startApplication } from '@common/orchestrator';
 import { fixtureEvaluationSpec } from '@common/mocks';
 import { CommonDatabase } from '@common/result-store';
 
+test('hosted API requires operator credentials and exact HTTPS origin, and issues secure cookies', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'common-hosted-'));
+  const password = 'fixture-operator-password-not-for-deployment';
+  const app = await startApplication({ port: 0, dataDir: directory, readOnly: true, publicOrigin: 'https://common.example', operatorPassword: password,
+    specProvider: async () => fixtureEvaluationSpec, executor: { mode: 'local', execute: async () => { throw new Error('Must not execute'); } } });
+  const authorization = `Basic ${Buffer.from(`operator:${password}`).toString('base64')}`;
+  const hostedRequest = (url: string, init: { headers: Record<string,string> }) => new Promise<Response>((resolve, reject) => {
+    get(url, { headers: init.headers }, res => {
+      const chunks: Buffer[] = [];
+      res.on('data', chunk => chunks.push(Buffer.from(chunk)));
+      res.on('end', () => resolve(new Response(Buffer.concat(chunks).toString(), { status: res.statusCode!, headers: Object.fromEntries(Object.entries(res.headers).filter(([,v]) => v !== undefined).map(([k,v]) => [k, Array.isArray(v) ? v.join(', ') : String(v)])) })));
+    }).on('error', reject);
+  });
+  try {
+    const headers = { host: 'common.example' };
+    assert.equal((await hostedRequest(app.origin, { headers })).status, 401);
+    assert.equal((await hostedRequest(app.origin, { headers: { ...headers, authorization: 'Basic wrong' } })).status, 401);
+    const home = await hostedRequest(app.origin, { headers: { ...headers, authorization } });
+    assert.equal(home.status, 200);
+    assert.match(home.headers.get('set-cookie')!, /; Secure/);
+    const cookie = home.headers.get('set-cookie')!.split(';')[0]!;
+    assert.equal((await hostedRequest(`${app.origin}/api/state`, { headers: { ...headers, authorization, cookie, origin: 'https://common.example' } })).status, 200);
+    assert.equal((await hostedRequest(`${app.origin}/api/state`, { headers: { ...headers, authorization, cookie, origin: 'http://common.example' } })).status, 403);
+    assert.equal((await hostedRequest(`${app.origin}/api/state`, { headers: { ...headers, cookie } })).status, 401);
+    assert.equal((await hostedRequest(app.origin, { headers: { authorization } })).status, 403);
+  } finally { await app.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
 test('local API requires a session, blocks foreign origins/hosts and never executes rejected requests', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'common-http-'));
   let executions = 0;

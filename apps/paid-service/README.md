@@ -103,3 +103,7 @@ Run `npm run start:evaluations --workspace @common/paid-service` after setting s
 - POST /jobs/:id/reconcile: same token required; check the persisted transaction identity and resume execution only if a matching successful transfer is observed.
 
 Payment submission is journaled before settlement. Unknown settlement never launches compute or submits a replacement payment. Paid jobs that stopped during computation are requeued on service restart, retaining their original receipt. Worker/report errors retain payment history. Local tests use labeled facilitator/runner doubles; fresh testnet verification remains pending credentials.
+
+## Hosted access
+
+An external `PUBLIC_SERVICE_URL` must use HTTPS and requires `COMMON_SERVICE_KEY` (24+ characters). `POST /jobs` checks `X-Common-Service-Key` before parsing/preparing; x402 and per-job report tokens remain independent. Public `/` describes the API, `/catalogue` supplies the current VM's supported evaluation spec, and `/health` reports process health. Run without treasury/signing keys under a separate Unix user. See [deployment](../../infra/deploy/README.md).

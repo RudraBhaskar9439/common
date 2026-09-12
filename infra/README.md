@@ -9,3 +9,5 @@ The current contract is deployed and the evaluation payment/HCS flow is [verifie
 The older `scripts/health-check.ts`, `live-verify.ts` and `failure-drills.ts` target the historical synthetic-dataset demonstration. They are retained as historical tools, not current evaluation-flow verification. Do not use their old address, fee-payer assumptions or receipt files to claim the new service was paid successfully. Current recovery binds the original signed transfer identity and does not automatically release on missing mirror data.
 
 Preserve the app/service SQLite databases and artifact directories across restart, run one worker per database, and keep secrets in ignored local environment files. Public hosting and release need separate access and authorization.
+
+Google Cloud deployment files and operational boundaries now live in [deploy/README.md](deploy/README.md). Rudra has authorized hosted deployment using existing credits; see the latest deployment evidence for actual readiness.

@@ -56,3 +56,7 @@ No local Hedera secret environment files found. Live verification needs configur
 ## New decision template
 
 Date / owner / decision / reason / affected modules / reviewers / follow-up task.
+
+## 2026-09-12 — Google Cloud deployment authorized
+
+Rudra requested complete deployment on the supplied Google Cloud project using existing trial credits. Use a single persistent CPU VM, protected operator access and a separately running x402 provider with no treasury keys. GitHub stays private. The VM has a three-day automatic STOP limit; disk storage persists and remains billable against credits. No billing upgrade or GPU allocation is authorized. Deployment evidence must distinguish new cloud measurements from earlier Mac measurements.

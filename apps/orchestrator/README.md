@@ -31,3 +31,7 @@ createEvaluationWorkflow binds a server-authenticated workspace and one executor
 SQLite claims deduplicate local computation; the contract separately authorizes actual payments. Stable request IDs cannot change parameters. A waiter becomes a successful reuse only after report retrieval and validation. Changed specs get a new key; stale/corrupt reports require an explicit new measurement generation. Unknown payment keeps the claim and can be resumed without a replacement operation. One worker process per app database.
 
 The decision outbox survives restarts. Publishing is at least once: consumers must deduplicate decision IDs. HCS retries never call payment execution. A note consensus timestamp is left unknown when its record cannot be read, rather than substituting transaction valid-start time.
+
+## Hosted access
+
+`COMMON_PUBLIC_ORIGIN` enables exact HTTPS origin validation and Secure cookies and requires `COMMON_OPERATOR_PASSWORD` (24+ characters). Every request requires Basic authentication with username `operator`; a session alone never bypasses it. The process still binds loopback behind Caddy. `COMMON_SERVICE_KEY` authenticates preparation to the provider. See [deployment](../../infra/deploy/README.md).
