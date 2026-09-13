@@ -14,7 +14,9 @@ async function prepareEvaluationWorkspace(contract, ethers, workspaceName, opera
     current = await contract.getWorkspace(workspace);
   }
   if (current.operator.toLowerCase() !== operator.toLowerCase()) throw new Error('Workspace belongs to another operator');
-  if (current.budget < targetBudget) await send(contract.fundWorkspace(workspace, targetBudget - current.budget));
+  // Top up so the *available* accounting budget (funded − committed − spent) reaches the target.
+  const available = current.budget - current.committed - current.spent;
+  if (available < targetBudget) await send(contract.fundWorkspace(workspace, targetBudget - available));
   for (const agent of ['agent-a', 'agent-b']) if (!await contract.isAgentAuthorized(workspace, ethers.id(agent))) await send(contract.setAgentAuthorization(workspace, ethers.id(agent), true));
   return transactions;
 }

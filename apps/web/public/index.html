@@ -6,6 +6,7 @@
   <div class="workspace" title="Current workspace"><span class="workspace-icon">◈</span><div><small>Model research</small><span id="workspace-name" class="ws-name">Local workspace</span></div><span class="ws-dot" id="ws-dot"></span></div>
   <nav aria-label="Main navigation">
     <a href="#overview" data-nav="overview"><i>◉</i><span>Overview</span></a>
+    <a href="#console" data-nav="console"><i>◎</i><span>Agent console</span></a>
     <a href="#lab" data-nav="lab"><i>⌘</i><span>Evaluation lab</span></a>
     <a href="#evidence" data-nav="evidence"><i>▤</i><span>Evidence</span><em id="nav-evidence-count" class="nav-count" hidden></em></a>
     <a href="#memory" data-nav="memory"><i>≋</i><span>Decision memory</span><em id="nav-memory-count" class="nav-count" hidden></em></a>
@@ -50,10 +51,31 @@
       </ol>
     </article>
     <article class="panel">
-      <div class="section-label"><span>LATEST ACTIVITY</span><a href="#lab" class="link-small">Open the lab ↗</a></div>
-      <div id="overview-activity"><div class="empty small">Nothing has run yet.<small>Use the bar below to request an evaluation.</small></div></div>
+      <div class="section-label"><span>LATEST ACTIVITY</span><a href="#console" class="link-small">Open the console ↗</a></div>
+      <div id="overview-activity"><div class="empty small">Nothing has run yet.<small>Send a goal from the agent console.</small></div></div>
     </article>
   </div>
+</section>
+
+<!-- ============================== CONSOLE ============================== -->
+<section class="view" data-view="console" hidden>
+  <div class="console-head"><h2>Give an agent a goal.</h2><p class="muted">The agent decides whether to buy, reuse or refuse — every message between agents, Common, Hedera and HCS appears below.</p></div>
+  <!-- Agent console: the request controls and a transcript of who said what to whom. -->
+  <section class="panel console" id="command-bar" aria-label="Agent console">
+    <div class="section-label"><span>REQUEST</span><span id="dock-state" class="dock-state">Idle</span></div>
+    <div class="cb-row">
+      <div class="cb-goal"><label class="field-label" for="goal">Goal</label><input id="goal" type="text" maxlength="200" value="Pick an open model that can run our support desk." autocomplete="off"></div>
+      <div class="cb-line"><div class="cb-budget"><label class="field-label" for="budget">Budget</label><div class="budget-wrap"><input id="budget" type="number" min="0" step="0.1" value="2"><span>HBAR</span></div></div>
+      <div class="cb-left"><label class="field-label" for="agent">Agent</label><select id="agent"><option value="agent-a">Agent A</option><option value="agent-b">Agent B</option></select></div>
+      <div class="cb-main"><button id="acquire" class="primary">Send goal to agent <span>↗</span></button><button id="fresh" class="ghost" title="Force a new measurement generation">Fresh measurement</button></div></div>
+    </div>
+    <p id="action-message" role="status" aria-live="polite"></p>
+    <div class="cb-detail" id="cb-detail">
+      <div class="cb-feed-head"><span class="section-label">TRANSCRIPT</span><span id="agent-hint" class="agent-hint"></span><button id="cb-clear" class="link-small">Clear</button></div>
+      <ol id="cb-feed" class="cb-feed"><li class="feed-empty">Send a goal to an agent. Every message between the agents, Common, Hedera and HCS appears here.</li></ol>
+    </div>
+  </section>
+
 </section>
 
 <!-- ============================== LAB ============================== -->
@@ -71,7 +93,7 @@
     </article>
     <article class="panel runs">
       <div class="section-label"><span>ACTIVITY</span><span id="run-count">0 runs</span></div>
-      <div id="runs"><div class="empty">Your first evaluation starts here.<small>Use the bar below to request one.</small></div></div>
+      <div id="runs"><div class="empty">Your first evaluation starts here.<small>Send a goal from the agent console.</small></div></div>
     </article>
   </div>
 </section>
@@ -110,21 +132,6 @@
 
 <footer>Common is a shared memory for measured decisions.<span>Small task suite · Observed outcomes · No reliability guarantee</span></footer>
 </main>
-
-<!-- Persistent command bar: full request controls on every view, with a live activity feed. -->
-<div class="command-bar" id="command-bar" role="region" aria-label="Request an evaluation">
-  <button class="cb-toggle" id="cb-toggle" aria-expanded="false" aria-controls="cb-detail" title="Show activity">▴</button>
-  <div class="cb-row">
-    <div class="cb-left"><label class="field-label" for="agent">Requesting agent</label><select id="agent"><option value="agent-a">Agent A · Model selection</option><option value="agent-b">Agent B · Workflow planning</option></select></div>
-    <div class="cb-main"><button id="acquire" class="primary">Find or run evaluation <span>↗</span></button><p id="action-message" role="status" aria-live="polite"></p></div>
-    <div class="cb-right"><button id="reuse" class="ghost">Ask Agent B to reuse</button><button id="fresh" class="ghost">Run fresh measurement</button></div>
-    <span id="dock-state" class="dock-state">Idle</span>
-  </div>
-  <div class="cb-detail" id="cb-detail" hidden>
-    <div class="cb-feed-head"><span class="section-label">ACTIVITY</span><span id="agent-hint" class="agent-hint"></span><button id="cb-clear" class="link-small">Clear</button></div>
-    <ol id="cb-feed" class="cb-feed"><li class="feed-empty">Events will appear here as the request moves through memory, payment and evaluation.</li></ol>
-  </div>
-</div>
 
 <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
 </body></html>

@@ -53,17 +53,25 @@ test('hosted API requires operator credentials and exact HTTPS origin, and issue
   } finally { await app.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
+/* A session the way the browser gets one. Tests must not depend on whether the developer's
+   own .env sets COMMON_OPERATOR_PASSWORD, so they always sign in with a known password. */
+const TEST_PASSWORD = 'fixture-test-password-not-a-secret';
+async function signIn(origin: string) {
+  const response = await fetch(`${origin}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ username: 'operator', password: TEST_PASSWORD }) });
+  return { response, cookie: response.headers.get('set-cookie')!.split(';')[0]! };
+}
+
 test('local API requires a session, blocks foreign origins/hosts and never executes rejected requests', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'common-http-'));
   let executions = 0;
-  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'http-test', readOnly: false, specProvider: async () => fixtureEvaluationSpec,
+  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'http-test', readOnly: false, operatorPassword: TEST_PASSWORD, specProvider: async () => fixtureEvaluationSpec,
     executor: { mode: 'local', execute: async () => { executions++; throw new Error('Unexpected execution'); } } });
   try {
     assert.equal((await fetch(`${app.origin}/api/state`)).status, 401);
     const home = await fetch(app.origin);
-    const cookie = home.headers.get('set-cookie')!.split(';')[0]!;
-    assert.match(home.headers.get('set-cookie')!, /HttpOnly; SameSite=Strict/);
     assert.match(home.headers.get('content-security-policy')!, /frame-ancestors 'none'/);
+    const { response: login, cookie } = await signIn(app.origin);
+    assert.match(login.headers.get('set-cookie')!, /HttpOnly; SameSite=Strict/);
     assert.equal((await fetch(`${app.origin}/api/state`, { headers: { cookie } })).status, 200);
     const foreignHostStatus = await new Promise<number | undefined>((done, reject) => {
       get(`${app.origin}/api/state`, { headers: { cookie, host: 'attacker.example' } }, res => { res.resume(); done(res.statusCode); }).on('error', reject);
@@ -86,10 +94,10 @@ test('read-only review serves evidence while refusing new evaluations and retrie
   });
   seed.close();
   let executions = 0;
-  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'review-test', readOnly: true, specProvider: async () => fixtureEvaluationSpec,
+  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'review-test', readOnly: true, operatorPassword: TEST_PASSWORD, specProvider: async () => fixtureEvaluationSpec,
     executor: { mode: 'hedera-testnet', execute: async () => { executions++; throw new Error('Must not execute'); } } });
   try {
-    const home = await fetch(app.origin); const cookie = home.headers.get('set-cookie')!.split(';')[0]!;
+    const { cookie } = await signIn(app.origin);
     const state = await (await fetch(`${app.origin}/api/state`, { headers: { cookie } })).json() as { readOnly: boolean; mode: string };
     assert.equal(state.readOnly, true); assert.equal(state.mode, 'hedera-testnet');
     assert.equal((await fetch(`${app.origin}/api/evaluations`, { method: 'POST', headers: { cookie }, body: '{}' })).status, 403);

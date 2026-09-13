@@ -4,6 +4,7 @@ import { evaluationPurchaseKey, validateEvaluationReport } from '@common/agent-t
 import { CommonDatabase, createResultStore } from '@common/result-store';
 import { createMemoryReader, type ObservedCompletion } from '@common/memory-client';
 import { safeErrorMessage } from '../services/errors.js';
+import { policyBuyer, type BuyerAgent, type BuyerDecision, type MemoryCandidate } from '../agents/buyer.js';
 
 export interface EvaluationOperation {
   operationId: string; workspaceId: string; agentId: string; purchaseKey: string; spec: EvaluationSpec;
@@ -16,11 +17,13 @@ export interface EvaluationExecutor {
   publishDecision?: (decision: DecisionRecord) => Promise<DecisionReceipt>;
   recordDelivery?: (operation: EvaluationOperation, report: EvaluationReport, usable: boolean) => Promise<void>;
 }
-export interface RequestRecord { requestId: string; workspaceId: string; agentId: string; operationId: string; purchaseKey: string; kind: 'acquire' | 'reuse' }
+export interface RequestRecord { requestId: string; workspaceId: string; agentId: string; operationId: string; purchaseKey: string; kind: 'acquire' | 'reuse'; goal?: string; agentReason?: string; decidedBy?: 'openai' | 'policy' }
 
 /** One worker per application database. Public methods bind the authenticated workspace. */
-export function createEvaluationWorkflow(options: { database: CommonDatabase; workspaceId: string; executor: EvaluationExecutor }) {
+export function createEvaluationWorkflow(options: { database: CommonDatabase; workspaceId: string; executor: EvaluationExecutor; buyer?: BuyerAgent; priceTinybar?: bigint }) {
   const { database: db, workspaceId, executor } = options;
+  const buyer = options.buyer ?? policyBuyer;
+  const price = options.priceTinybar ?? 0n;
   const resultStore = createResultStore({ database: db, workspaceId });
   const memory = createMemoryReader(db, workspaceId);
   let worker: Promise<void> | undefined; let closed = false; let publication: Promise<void> | undefined;
@@ -52,7 +55,7 @@ export function createEvaluationWorkflow(options: { database: CommonDatabase; wo
     for (const { value: request } of db.list<RequestRecord>('requests')) {
       if (request.workspaceId !== workspaceId || request.operationId !== row.operationId) continue;
       const completion: ObservedCompletion = { workspaceId, requestId: request.requestId, operationId: row.operationId, kind: request.kind, completedAt: new Date().toISOString() };
-      if (db.insert('completions', scoped(request.requestId), completion) && request.kind === 'reuse') decision(request, 'reuse', 'Retrieved a complete, fresh report for the exact model, application and task configuration.');
+      if (db.insert('completions', scoped(request.requestId), completion) && request.kind === 'reuse') decision(request, 'reuse', request.agentReason ?? 'Retrieved a complete, fresh report for the exact model, application and task configuration.');
     }
   }
   function schedule() {
@@ -93,36 +96,78 @@ export function createEvaluationWorkflow(options: { database: CommonDatabase; wo
       }
     })().finally(() => { worker = undefined; });
   }
+  type PlainRequest = { requestId: string; agentId: string; spec: EvaluationSpec };
+  type GoalRequest = PlainRequest & { goal: string; budgetTinybar?: string };
+  type Accepted = { request: RequestRecord; operation: EvaluationOperation; agent?: BuyerDecision };
+  type Rejected = { request: Omit<RequestRecord, 'kind'> & { kind: 'reject' }; operation: undefined; agent: BuyerDecision };
+  /**
+   * With `goal` and `budgetTinybar`, the buyer agent decides buy / reuse / reject and its
+   * reasoning is recorded. Without them, behaviour is exactly as before. The agent only
+   * ever chooses among options this workflow already permits; the rules below still apply.
+   */
+  async function request(input: PlainRequest): Promise<Accepted>;
+  async function request(input: GoalRequest): Promise<Accepted | Rejected>;
+  async function request(input: PlainRequest & { goal?: string; budgetTinybar?: string }): Promise<Accepted | Rejected> {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(input.requestId) || !['agent-a', 'agent-b'].includes(input.agentId)) throw new CommonError('UNAUTHORIZED', 'Invalid request identity or agent');
+    const purchaseKey = evaluationPurchaseKey(input.spec);
+    const claimKey = scoped(`${executor.mode}:${purchaseKey}`);
+
+    // --- the agent's call, made before anything is written -----------------------
+    let agent: BuyerDecision | undefined;
+    if (input.goal !== undefined) {
+      const goal = String(input.goal).trim().slice(0, 500);
+      if (!goal) throw new CommonError('UNAUTHORIZED', 'A goal is required');
+      const budgetTinybar = BigInt(/^\d{1,20}$/.test(input.budgetTinybar ?? '') ? input.budgetTinybar! : '0');
+      const claimed = db.get<string>('evaluation-claims', claimKey);
+      const candidates: MemoryCandidate[] = claimed ? [(() => {
+        const row = operation(claimed);
+        let summary: string | undefined;
+        if (row.resultId) {
+          const stored = db.get<{ content: EvaluationReport }>('results', scoped(row.operationId));
+          if (stored) summary = row.spec.models.map(m => `${m.id} ${stored.content.tasks.filter(t => t.modelId === m.id && t.outcome === 'passed').length}/${stored.content.tasks.filter(t => t.modelId === m.id).length}`).join(' · ');
+          const fresh = Date.parse(stored?.content.freshUntil ?? '') > Date.now() && !stored?.content.tasks.some(t => t.outcome === 'infrastructure_error');
+          return { operationId: row.operationId, agentId: row.agentId, status: row.status, ageMinutes: Math.round((Date.now() - Date.parse(row.createdAt)) / 60000), fresh, ...(summary ? { summary } : {}) };
+        }
+        return { operationId: row.operationId, agentId: row.agentId, status: row.status, ageMinutes: Math.round((Date.now() - Date.parse(row.createdAt)) / 60000), fresh: false };
+      })()] : [];
+      const allowed: ('buy' | 'reuse' | 'reject')[] = claimed ? ['reuse', 'reject'] : ['buy', 'reject'];
+      agent = await buyer.decide({ agentId: input.agentId, goal, budgetTinybar, priceTinybar: executor.mode === 'local' ? 0n : price, candidates, allowed });
+      if (agent.action === 'reject') {
+        const record: RequestRecord = { requestId: input.requestId, workspaceId, agentId: input.agentId, operationId: claimed ?? '', purchaseKey, kind: 'reuse', goal, agentReason: agent.reason, decidedBy: agent.source };
+        decision({ ...record, operationId: claimed ?? record.requestId }, 'reject', agent.reason);
+        const { kind: _kind, ...rest } = record;
+        return { request: { ...rest, kind: 'reject' as const }, operation: undefined, agent };
+      }
+    }
+
+    const record = db.transaction(() => {
+      const previous = db.get<RequestRecord>('requests', scoped(input.requestId));
+      if (previous) {
+        if (previous.agentId !== input.agentId || previous.purchaseKey !== purchaseKey) throw new Error('Request ID has conflicting parameters');
+        return previous;
+      }
+      const claimed = db.get<string>('evaluation-claims', claimKey);
+      const operationId = claimed ?? randomUUID();
+      if (!claimed) {
+        const now = new Date().toISOString();
+        const row: EvaluationOperation = { operationId, workspaceId, agentId: input.agentId, purchaseKey, spec: input.spec, mode: executor.mode, status: 'queued', createdAt: now, updatedAt: now };
+        db.insert('evaluations', operationId, row); db.insert('evaluation-claims', claimKey, operationId);
+      }
+      const record: RequestRecord = { requestId: input.requestId, workspaceId, agentId: input.agentId, operationId, purchaseKey, kind: claimed ? 'reuse' : 'acquire',
+        ...(agent ? { goal: String(input.goal).trim().slice(0, 500), agentReason: agent.reason, decidedBy: agent.source } : {}) };
+      db.insert('requests', scoped(input.requestId), record);
+      decision(record, claimed ? 'wait' : 'buy', agent?.reason ?? (claimed ? 'An evaluation already owns this exact configuration. Check its result before starting another run.' : 'No existing evaluation owns this configuration. Acquire one bounded run.'));
+      return record;
+    });
+    const row = operation(record.operationId);
+    if (row.status === 'completed') {
+      try { await completeRequests(row); } catch (err) { decision(record, 'reject', 'The stored report is no longer usable. A new explicit measurement generation is required.'); throw err; }
+    }
+    schedule(); return { request: record, operation: row, ...(agent ? { agent } : {}) };
+  }
   return {
     memory,
-    async request(input: { requestId: string; agentId: string; spec: EvaluationSpec }) {
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(input.requestId) || !['agent-a', 'agent-b'].includes(input.agentId)) throw new CommonError('UNAUTHORIZED', 'Invalid request identity or agent');
-      const purchaseKey = evaluationPurchaseKey(input.spec);
-      const request = db.transaction(() => {
-        const previous = db.get<RequestRecord>('requests', scoped(input.requestId));
-        if (previous) {
-          if (previous.agentId !== input.agentId || previous.purchaseKey !== purchaseKey) throw new Error('Request ID has conflicting parameters');
-          return previous;
-        }
-        const claimKey = scoped(`${executor.mode}:${purchaseKey}`);
-        const claimed = db.get<string>('evaluation-claims', claimKey);
-        const operationId = claimed ?? randomUUID();
-        if (!claimed) {
-          const now = new Date().toISOString();
-          const row: EvaluationOperation = { operationId, workspaceId, agentId: input.agentId, purchaseKey, spec: input.spec, mode: executor.mode, status: 'queued', createdAt: now, updatedAt: now };
-          db.insert('evaluations', operationId, row); db.insert('evaluation-claims', claimKey, operationId);
-        }
-        const record: RequestRecord = { requestId: input.requestId, workspaceId, agentId: input.agentId, operationId, purchaseKey, kind: claimed ? 'reuse' : 'acquire' };
-        db.insert('requests', scoped(input.requestId), record);
-        decision(record, claimed ? 'wait' : 'buy', claimed ? 'An evaluation already owns this exact configuration. Check its result before starting another run.' : 'No existing evaluation owns this configuration. Acquire one bounded run.');
-        return record;
-      });
-      const row = operation(request.operationId);
-      if (row.status === 'completed') {
-        try { await completeRequests(row); } catch (err) { decision(request, 'reject', 'The stored report is no longer usable. A new explicit measurement generation is required.'); throw err; }
-      }
-      schedule(); return { request, operation: row };
-    },
+    request,
     operations() { return db.list<EvaluationOperation>('evaluations').map(r => r.value).filter(r => r.workspaceId === workspaceId).sort((a,b) => b.createdAt.localeCompare(a.createdAt)); },
     get: operation,
     async report(id: string) {

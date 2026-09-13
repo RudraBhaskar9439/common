@@ -11,6 +11,7 @@ import { readWebAsset } from '@common/web';
 import { createEvaluationWorkflow, type EvaluationExecutor } from './workflows/evaluation.js';
 import { createPaidEvaluator } from './services/paid-evaluator.js';
 import { safeErrorMessage } from './services/errors.js';
+import { createOpenAIBuyer, policyBuyer } from './agents/buyer.js';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 function json(res: ServerResponse, status: number, body: unknown) {
@@ -41,7 +42,14 @@ export async function startApplication(options: { port?: number; dataDir?: strin
     : mode === 'hedera-testnet'
     ? createPaidEvaluator(db, process.env['PAID_SERVICE_URL'] ?? 'http://127.0.0.1:3002')
     : { mode: 'local', execute: async operation => ({ report: await createEvaluationRunner({ artifactDir: join(dataDir, 'artifacts'), onProgress: task => db.set('progress', operation.operationId, task) }).run({ jobId: operation.operationId, spec: operation.spec }) }) });
-  const workflow = createEvaluationWorkflow({ database: db, workspaceId, executor });
+  // Buyer agent: a hosted model makes the buy/reuse/reject call when COMMON_BUYER=openai
+  // and a key is present. Otherwise the deterministic policy decides — identical to the
+  // behaviour before the agent existed. The money path is unaffected either way.
+  const buyer = process.env['COMMON_BUYER'] === 'openai' && process.env['OPENAI_API_KEY']
+    ? createOpenAIBuyer({ apiKey: process.env['OPENAI_API_KEY'], ...(process.env['OPENAI_MODEL'] ? { model: process.env['OPENAI_MODEL'] } : {}), ...(process.env['OPENAI_BASE_URL'] ? { baseUrl: process.env['OPENAI_BASE_URL'] } : {}) })
+    : policyBuyer;
+  const priceTinybar = BigInt(/^\d{1,20}$/.test(process.env['PRICE_AMOUNT'] ?? '') ? process.env['PRICE_AMOUNT']! : '50000000');
+  const workflow = createEvaluationWorkflow({ database: db, workspaceId, executor, buyer, priceTinybar });
   const specProvider = options.specProvider ?? defaultEvaluationSpec;
   const session = randomBytes(32).toString('hex');
   const sessionLifetimeMs = 8 * 60 * 60 * 1000;
@@ -103,15 +111,15 @@ export async function startApplication(options: { port?: number; dataDir?: strin
           const receipt = db.get<DecisionReceipt>('decision-receipts', r.id);
           return receipt?.hcsStatus === 'confirmed' ? `HCS sequence ${receipt.hcsSequenceNumber ?? 'confirmed'}` : 'HCS publication pending';
         })() })).filter(d => d.workspaceId === workspaceId).sort((a,b) => b.createdAt.localeCompare(a.createdAt));
-        return json(res, 200, { workspaceId, mode: executor.mode, readOnly, spec, readinessError,
+        return json(res, 200, { workspaceId, mode: executor.mode, readOnly, spec, readinessError, buyer: buyer === policyBuyer ? 'policy' : process.env['OPENAI_MODEL'] || 'gpt-4o-mini',
           operations: workflow.operations().map(o => ({ ...o, progress: db.get<TaskEvaluation>('progress', o.operationId) })),
           stats: await workflow.memory.getWorkspaceStats(workspaceId), decisions,
         });
       }
       if (path === '/api/evaluations' && req.method === 'POST') {
-        const input = await body(req) as unknown as { requestId: string; agentId: string; spec: EvaluationSpec };
+        const input = await body(req) as unknown as { requestId: string; agentId: string; spec: EvaluationSpec; goal?: string; budgetTinybar?: string };
         assertRunnableSpec(input.spec);
-        return json(res, 202, await workflow.request(input));
+        return json(res, 202, await (typeof input.goal === 'string' ? workflow.request({ ...input, goal: input.goal }) : workflow.request(input)));
       }
       const resume = /^\/api\/evaluations\/([a-f0-9-]{36})\/resume$/.exec(path);
       if (resume && req.method === 'POST') { workflow.retry(resume[1]!); return json(res, 202, { status: 'resuming' }); }

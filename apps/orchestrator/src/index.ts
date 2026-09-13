@@ -2,3 +2,4 @@ export { createPersistentOperationRegistry } from './services/operation-registry
 export { createEvaluationWorkflow, type EvaluationExecutor, type EvaluationOperation } from './workflows/evaluation.js';
 export { createPaidEvaluator } from './services/paid-evaluator.js';
 export { startApplication } from './server.js';
+export { createOpenAIBuyer, policyBuyer, policyDecision, enforce, type BuyerAgent, type BuyerDecision, type BuyerInput } from './agents/buyer.js';

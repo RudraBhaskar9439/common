@@ -65,43 +65,30 @@ function toast(title, text, tone = 'info', ms = 6500) {
   setTimeout(() => { box.classList.remove('show'); setTimeout(() => box.remove(), 300); }, ms);
 }
 
-/* Every event goes to the feed in the command bar. Only the big moments also toast.
-   The feed survives a reload: it is kept in the browser, per workspace. */
+/* Every event is one line of the transcript: who said it, to whom, and what.
+   Only the big moments also toast. The transcript survives a reload, per workspace. */
 let feed = [];
-let barManuallyClosed = false;
 const feedKey = () => `common.feed.${state?.workspaceId || 'default'}`;
 function saveFeed() { try { localStorage.setItem(feedKey(), JSON.stringify(feed)); } catch { /* storage unavailable */ } }
 function loadFeed() {
   try { feed = (JSON.parse(localStorage.getItem(feedKey()) || '[]')).map(e => ({ ...e, at: new Date(e.at) })); } catch { feed = []; }
   renderFeed();
 }
-function log(title, text, tone = 'info', { toastToo = false, ms } = {}) {
-  feed.unshift({ at: new Date(), title, text, tone });
-  if (feed.length > 30) feed.pop();
+function log(title, text, tone = 'info', { toastToo = false, ms, from = 'common', to = 'you', tag } = {}) {
+  feed.unshift({ at: new Date(), title, text, tone, from, to, ...(tag ? { tag } : {}) });
+  if (feed.length > 40) feed.pop();
   renderFeed(); saveFeed();
   if (toastToo) toast(title, text, tone, ms);
-  if (tone === 'active' || tone === 'info') openBar(false);
 }
+const PARTY = { 'agent-a': 'agent', 'agent-b': 'agent', common: 'common', hedera: 'hedera', hcs: 'hcs', you: 'you' };
+/* Agents are labelled with what decides for them, so every line shows who is really talking. */
+function party(id) { const kind = PARTY[id] || 'other'; return `<span class="who ${esc(kind)}">${esc(id)}${kind === 'agent' ? `<small>(${esc(state?.buyer || 'policy')})</small>` : ''}</span>`; }
+/* Newest first. The latest line is highlighted at the top. */
 function renderFeed() {
-  $('cb-feed').innerHTML = feed.length ? feed.map((e, i) => `<li class="${esc(e.tone)} ${i === 0 ? 'latest' : ''}"><time>${esc(clock(e.at))}</time><span class="feed-dot"></span><div><strong>${esc(e.title)}</strong>${e.text ? `<p>${esc(e.text)}</p>` : ''}</div></li>`).join('')
-    : '<li class="feed-empty">Events will appear here as the request moves through memory, payment and evaluation.</li>';
-}
-/* Open by default so the activity is always visible. A manual collapse is remembered. */
-function openBar(manual) {
-  if (!manual && barManuallyClosed) return;
-  $('cb-detail').hidden = false; $('command-bar').classList.add('open');
-  $('cb-toggle').setAttribute('aria-expanded', 'true'); $('cb-toggle').textContent = '▾'; $('cb-toggle').title = 'Hide activity';
-  try { localStorage.setItem('common.bar', 'open'); } catch { /* storage unavailable */ }
-}
-function closeBar() {
-  $('cb-detail').hidden = true; $('command-bar').classList.remove('open');
-  $('cb-toggle').setAttribute('aria-expanded', 'false'); $('cb-toggle').textContent = '▴'; $('cb-toggle').title = 'Show activity';
-  try { localStorage.setItem('common.bar', 'closed'); } catch { /* storage unavailable */ }
-}
-function initBar() {
-  let saved = 'open';
-  try { saved = localStorage.getItem('common.bar') || 'open'; } catch { /* storage unavailable */ }
-  if (saved === 'closed') { barManuallyClosed = true; closeBar(); } else openBar(true);
+  const rows = feed;
+  $('cb-feed').innerHTML = rows.length ? rows.map((e, i) => `<li class="${esc(e.tone)} ${i === 0 ? 'latest' : ''}"><time>${esc(clock(e.at))}</time><span class="feed-dot"></span><span class="route">${party(e.from || 'common')}<i>→</i>${party(e.to || 'you')}</span><div><strong>${esc(e.title)}</strong>${e.text ? `<span class="msg">${esc(e.text)}</span>` : ''}${e.tag ? `<b class="tag">${esc(e.tag)}</b>` : ''}</div></li>`).join('')
+    : '<li class="feed-empty">Send a goal to an agent. Every message between the agents, Common, Hedera and HCS appears here.</li>';
+  $('cb-feed').scrollTop = 0;
 }
 
 /* Compare the last state with the new one and describe what changed. */
@@ -111,22 +98,22 @@ function announce(prev, next) {
   for (const op of next.operations) {
     const was = before.get(op.operationId);
     const who = AGENTS[op.agentId] || op.agentId;
-    if (!was) { log(`${who} · evaluation queued`, `Operation ${short(op.operationId)} · ${op.spec.taskIds.length} tasks × ${op.spec.models.length} models · ${op.mode}`, 'info'); continue; }
-    if (!was.receipt && op.receipt) log('Payment settled on Hedera', `Receipt ${op.receipt.transactionId}`, 'ok', { toastToo: true, ms: 9000 });
+    if (!was) { log('Evaluation queued', `Operation ${short(op.operationId)} · ${op.spec.taskIds.length} tasks × ${op.spec.models.length} models · ${op.mode}`, 'info', { from: 'common', to: op.agentId }); continue; }
+    if (!was.receipt && op.receipt) log(`Paid ${hbar(op.receipt.amount?.amount)} HBAR via x402`, `Receipt ${op.receipt.transactionId}`, 'ok', { toastToo: true, ms: 9000, from: 'common', to: 'hedera' });
     if (was.status !== op.status) {
-      if (op.status === 'running') log(`${who} · evaluation running`, 'Models are operating the browser. Progress shows below as each task finishes.', 'active');
-      if (op.status === 'completed') log(`${who} · report ready`, 'Delivered and validated. Reusable by other agents while it stays fresh.', 'ok', { toastToo: true, ms: 8000 });
-      if (op.status === 'failed') log(`${who} · operation failed`, op.error || 'Open the activity panel to resume.', 'bad', { toastToo: true, ms: 9000 });
-      if (op.status === 'settlement_unknown') log('Settlement unknown — blocked', 'Waiting for the chain to confirm. Nothing will be retried blindly.', 'warn', { toastToo: true, ms: 10000 });
+      if (op.status === 'running') log(`Running ${op.spec.taskIds.length * op.spec.models.length * (op.spec.repetitions || 1)} executions…`, 'Models are operating the browser. Each task is checked against the final page state.', 'active', { from: 'common', to: op.agentId });
+      if (op.status === 'completed') log('Report delivered', 'Validated and stored in shared memory. Reusable by other agents while it stays fresh.', 'ok', { toastToo: true, ms: 8000, from: 'common', to: op.agentId });
+      if (op.status === 'failed') log('Operation failed', op.error || 'Resume it from the evaluation lab.', 'bad', { toastToo: true, ms: 9000, from: 'common', to: op.agentId });
+      if (op.status === 'settlement_unknown') log('Settlement unknown — blocked', 'Waiting for the chain to confirm. Nothing will be retried blindly.', 'warn', { toastToo: true, ms: 10000, from: 'hedera', to: 'common' });
     }
     if (op.status === 'running' && op.progress && JSON.stringify(was.progress) !== JSON.stringify(op.progress)) {
-      log(`${op.progress.modelId} · ${TASKS[op.progress.taskId]?.label || op.progress.taskId}`, `${String(op.progress.outcome).replaceAll('_', ' ')} · ${op.progress.steps?.length ?? ''} actions`, op.progress.outcome === 'passed' ? 'ok' : 'warn');
+      log(`${op.progress.modelId} · ${TASKS[op.progress.taskId]?.label || op.progress.taskId}`, `${String(op.progress.outcome).replaceAll('_', ' ')} · ${op.progress.steps?.length ?? ''} actions`, op.progress.outcome === 'passed' ? 'ok' : 'warn', { from: 'common', to: op.agentId });
     }
   }
-  if (next.stats.successfulReuses > prev.stats.successfulReuses) log('Report reused from shared memory', 'Answered without a payment or a new run.', 'ok', { toastToo: true, ms: 8000 });
+  if (next.stats.successfulReuses > prev.stats.successfulReuses) log('Report handed over from shared memory', 'Answered without a payment or a new run.', 'ok', { toastToo: true, ms: 8000 });
   const confirmedBefore = prev.decisions.filter(d => /sequence/.test(d.publication || '')).length;
   const confirmedNow = next.decisions.filter(d => /sequence/.test(d.publication || '')).length;
-  if (confirmedNow > confirmedBefore) log('Decision note published to HCS', `${confirmedNow - confirmedBefore} note${confirmedNow - confirmedBefore === 1 ? '' : 's'} confirmed on the consensus topic.`, 'ok');
+  if (confirmedNow > confirmedBefore) log('Decision note published', `${confirmedNow - confirmedBefore} note${confirmedNow - confirmedBefore === 1 ? '' : 's'} confirmed · ${next.decisions.map(d => (d.publication || '').match(/sequence\s*#?(\d+)/)?.[1]).filter(Boolean).slice(0, confirmedNow - confirmedBefore).map(n => `sequence ${n}`).join(', ') || 'consensus topic'}`, 'ok', { from: 'common', to: 'hcs' });
 }
 
 /* An operation error is shown for the session in which it happened, then not again.
@@ -149,13 +136,13 @@ const rendered = new Map();
 function changed(key, value) { const s = JSON.stringify(value); if (rendered.get(key) === s) return false; rendered.set(key, s); return true; }
 
 // ------------------------------------------------------------------ router
-const VIEWS = ['overview', 'lab', 'evidence', 'memory', 'ledger'];
+const VIEWS = ['overview', 'console', 'lab', 'evidence', 'memory', 'ledger'];
 function currentView() { const h = location.hash.replace('#', ''); return VIEWS.includes(h) ? h : 'overview'; }
 function route() {
   const view = currentView();
   document.querySelectorAll('.view').forEach(v => { v.hidden = v.dataset.view !== view; });
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === view));
-  $('crumb').textContent = view === 'lab' ? 'EVALUATION LAB' : view === 'memory' ? 'DECISION MEMORY' : view === 'ledger' ? 'LEDGER' : view.toUpperCase();
+  $('crumb').textContent = view === 'lab' ? 'EVALUATION LAB' : view === 'memory' ? 'DECISION MEMORY' : view === 'ledger' ? 'LEDGER' : view === 'evidence' ? 'EVIDENCE' : view === 'console' ? 'AGENT CONSOLE' : 'OVERVIEW';
   window.scrollTo({ top: 0 });
 }
 function go(view) { if (currentView() !== view) location.hash = view; else route(); }
@@ -240,8 +227,8 @@ function renderRuns() {
   // Elapsed counters tick, so running operations re-render; everything else only on change.
   if (!changed('runs', ops) && !ops.some(o => o.status === 'running')) return;
   $('run-count').textContent = `${ops.length} run${ops.length === 1 ? '' : 's'}`;
-  $('runs').innerHTML = ops.length ? ops.map(o => runCard(o)).join('') : '<div class="empty">Your first evaluation starts here.<small>Use the bar below to request one.</small></div>';
-  $('overview-activity').innerHTML = ops.length ? ops.slice(0, 3).map(o => runCard(o, true)).join('') : '<div class="empty small">Nothing has run yet.<small>Use the bar below to request an evaluation.</small></div>';
+  $('runs').innerHTML = ops.length ? ops.map(o => runCard(o)).join('') : '<div class="empty">Your first evaluation starts here.<small>Send a goal from the agent console.</small></div>';
+  $('overview-activity').innerHTML = ops.length ? ops.slice(0, 3).map(o => runCard(o, true)).join('') : '<div class="empty small">Nothing has run yet.<small>Send a goal from the agent console.</small></div>';
 }
 
 function renderReportList() {
@@ -278,7 +265,6 @@ function renderButtons() {
   const ro = state.readOnly;
   $('acquire').disabled = ro || busy || !state.spec;
   $('fresh').disabled = ro || busy || !state.spec;
-  $('reuse').disabled = ro || busy || !selectedSpec;
   $('agent-hint').textContent = AGENT_HINT[$('agent').value] || '';
   const active = state.operations.find(o => o.status === 'running' || o.status === 'queued');
   const done = state.operations.filter(o => o.resultId).length;
@@ -302,7 +288,7 @@ async function refresh() {
       // Reloaded mid-run with no history: say what is happening rather than showing nothing.
       const inFlight = state.operations.find(o => o.status === 'running' || o.status === 'queued');
       if (inFlight && !feed.some(e => e.tone === 'active')) {
-        log(`${AGENTS[inFlight.agentId] || inFlight.agentId} · evaluation ${inFlight.status}`, `Operation ${short(inFlight.operationId)} was already in progress when this page loaded. Progress continues below.`, 'active');
+        log(`Evaluation ${inFlight.status}`, `Operation ${short(inFlight.operationId)} was already in progress when this page loaded.`, 'active', { from: 'common', to: inFlight.agentId });
       }
     }
     announce(previous, state);
@@ -345,29 +331,31 @@ async function showReport(id) {
 
 async function acquire(agentId, fresh = false) {
   if (busy || !selectedSpec) return;
-  busy = true; renderButtons(); userRequested = true; openBar(false);
+  const goal = $('goal').value.trim();
+  if (!goal) { message('Give the agent a goal first.', true); $('goal').focus(); return; }
+  const budgetTinybar = String(Math.round(Math.max(0, Number($('budget').value) || 0) * 1e8));
+  busy = true; renderButtons(); userRequested = true;
+  const who = AGENTS[agentId] || agentId;
   try {
     const spec = structuredClone(fresh ? state.spec : selectedSpec);
     if (fresh) spec.generation = crypto.randomUUID();
-    message('Checking shared memory…');
-    log(`${AGENTS[agentId] || agentId} · checking shared memory`, fresh ? 'Fresh measurement requested — a new evaluation will run regardless.' : 'Looking for a matching, fresh, delivered report first.', 'active');
-    const result = await api('/api/evaluations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ requestId: crypto.randomUUID(), agentId, spec }) });
+    message(`${who} is deciding…`);
+    log(`Requesting evaluation · ${spec.suiteId} v${spec.suiteVersion} · ${spec.models.map(m => m.id).join(', ')}`, `"${goal}" · budget ${$('budget').value || 0} HBAR${fresh ? ' · fresh measurement forced' : ''}`, 'active', { from: agentId, to: 'common' });
+    const result = await api('/api/evaluations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ requestId: crypto.randomUUID(), agentId, spec, goal, budgetTinybar }) });
+    const agent = result.agent;
+    if (agent) log(`Decision: ${agent.action.toUpperCase()}`, agent.reason, agent.action === 'reject' ? 'warn' : agent.action === 'reuse' ? 'ok' : 'info', { toastToo: agent.action === 'reject', ms: 9000, from: agentId, to: 'common', tag: `${who} = ${agent.source === 'openai' ? agent.model || 'openai' : 'policy fallback'}` });
+    if (result.request.kind === 'reject') { message(`${who} declined to spend. Nothing was reserved or paid.`); userRequested = false; return; }
     selectedId = result.operation.operationId; selectedSpec = spec; reportCacheKey = null;
-    if (result.request.kind === 'reuse') { message('Using the existing evaluation. Waiting for a usable report if it is still running.'); log('Match found in shared memory', 'Reusing the existing evaluation. No new payment, no new run.', 'ok', { toastToo: true, ms: 7000 }); userRequested = false; }
-    else { message('Evaluation queued. Follow its progress in the lab.'); log('No usable report in memory', isTestnet() ? 'Reserving budget on the contract, then paying through x402 before compute starts.' : 'Queuing a new local evaluation. No payment in local mode.', 'info'); go('lab'); }
-  } catch (error) { message(error.message, true); log('Request refused', error.message, 'bad', { toastToo: true, ms: 8000 }); userRequested = false; }
+    if (result.request.kind === 'reuse') { message('Using the existing evaluation. Waiting for a usable report if it is still running.'); const owner = state.operations.find(o => o.operationId === result.operation.operationId); log(`Match found — ${AGENTS[owner?.agentId] || 'another agent'}'s evaluation, ${owner ? timeAgo(owner.createdAt) : 'recent'}. Reusing.`, owner?.status === 'completed' ? 'No payment, no new run.' : 'Still running — attaching to it instead of paying again.', 'ok', { toastToo: true, ms: 7000, from: 'common', to: agentId }); userRequested = false; }
+    else { message('Evaluation queued. Watch the transcript, or follow it in the lab.'); log('No matching report in memory. Reserving budget.', isTestnet() ? 'Claiming the purchase on the contract, then paying through x402 before compute starts.' : 'Queuing a new local evaluation. No payment in local mode.', 'info', { from: 'common', to: agentId }); }
+  } catch (error) { message(error.message, true); log('Request refused', error.message, 'bad', { toastToo: true, ms: 8000, to: agentId }); userRequested = false; }
   finally { busy = false; await refresh(); }
 }
 
 // ------------------------------------------------------------------ events
 $('acquire').addEventListener('click', () => acquire($('agent').value));
-$('reuse').addEventListener('click', () => acquire('agent-b'));
 $('fresh').addEventListener('click', () => acquire($('agent').value, true));
 $('agent').addEventListener('change', renderButtons);
-$('cb-toggle').addEventListener('click', () => {
-  if ($('cb-detail').hidden) { barManuallyClosed = false; openBar(true); }
-  else { barManuallyClosed = true; closeBar(); }
-});
 $('cb-clear').addEventListener('click', () => { feed = []; renderFeed(); saveFeed(); });
 document.addEventListener('click', async event => {
   const button = event.target.closest('button'); if (!button) return;
@@ -380,12 +368,11 @@ document.addEventListener('click', async event => {
 });
 document.addEventListener('keydown', e => {
   if (e.target.matches('input,select,textarea')) return;
-  const map = { 1: 'overview', 2: 'lab', 3: 'evidence', 4: 'memory', 5: 'ledger' };
+  const map = { 1: 'overview', 2: 'console', 3: 'lab', 4: 'evidence', 5: 'memory', 6: 'ledger' };
   if (map[e.key]) go(map[e.key]);
 });
 
 route();
-initBar();
 loadSeenErrors();
 void refresh();
 setInterval(() => { if (!document.hidden) void refresh(); }, 2000);
