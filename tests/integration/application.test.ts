@@ -61,6 +61,35 @@ async function signIn(origin: string) {
   return { response, cookie: response.headers.get('set-cookie')!.split(';')[0]! };
 }
 
+test('public review allows evidence reads without granting a spending session', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'common-public-'));
+  let executions = 0;
+  const app = await startApplication({ port: 0, dataDir: directory, workspaceId: 'public-test', readOnly: false, publicReview: true,
+    operatorPassword: TEST_PASSWORD, specProvider: async () => fixtureEvaluationSpec,
+    executor: { mode: 'local', execute: async () => { executions++; throw new Error('Must not execute'); } } });
+  try {
+    const home = await fetch(app.origin);
+    assert.equal(home.status, 200);
+    assert.match(await home.text(), /data-nav="evidence"/);
+    assert.equal(home.headers.has('set-cookie'), false);
+    for (const asset of ['/app.js', '/style.css']) assert.equal((await fetch(`${app.origin}${asset}`)).status, 200);
+    const state = await (await fetch(`${app.origin}/api/state`)).json();
+    assert.equal(state.readOnly, true); assert.equal(state.publicReview, true);
+    assert.match(await (await fetch(`${app.origin}/login`)).text(), /login-form/);
+    for (const cookie of ['', 'common_session=forged']) {
+      for (const path of ['/api/evaluations', '/api/evaluations/00000000-0000-0000-0000-000000000000/resume']) {
+        assert.equal((await fetch(`${app.origin}${path}`, { method: 'POST', headers: { cookie, origin: app.origin }, body: '{}' })).status, 401);
+      }
+    }
+    assert.equal((await fetch(`${app.origin}/api/state`, { headers: { origin: 'https://attacker.example' } })).status, 403);
+    assert.equal((await fetch(`${app.origin}/api/not-public`)).status, 401);
+    const { cookie } = await signIn(app.origin);
+    const operatorState = await (await fetch(`${app.origin}/api/state`, { headers: { cookie } })).json();
+    assert.equal(operatorState.readOnly, false); assert.equal(operatorState.publicReview, false);
+    assert.equal(executions, 0);
+  } finally { await app.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
 test('local API requires a session, blocks foreign origins/hosts and never executes rejected requests', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'common-http-'));
   let executions = 0;

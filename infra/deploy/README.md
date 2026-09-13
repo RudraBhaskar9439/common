@@ -4,7 +4,7 @@ Rudra authorized deployment to the supplied Google Cloud project using existing 
 
 ## Boundaries
 
-Caddy exposes separate application/provider HTTPS hostnames. Node and Ollama bind loopback. The hosted application has a normal sign-in page (username `operator`), exact HTTPS origin validation, and signed Secure/HttpOnly/SameSite session cookies that expire after eight hours or a process restart. The random operator password grants configured compute and testnet spending access: share it only with intended reviewers.
+Caddy exposes separate application/provider HTTPS hostnames. Node and Ollama bind loopback. The hosted application has a normal sign-in page (username `operator`), exact HTTPS origin validation, and signed Secure/HttpOnly/SameSite session cookies that expire after eight hours or a process restart. The random operator password grants configured compute and testnet spending access: keep it with operators; judges can use public review without it.
 
 The provider exposes `/`, `/health`, and `/catalogue`. `POST /jobs` requires `X-Common-Service-Key`. Executing the prepared URL still requires x402 payment; reports/artifacts require the original job Bearer token. A 256-job capacity bounds stored preparations. This is controlled admission, not an anonymous marketplace or a full rate-limiting system.
 
@@ -25,7 +25,7 @@ App adds `COMMON_PUBLIC_ORIGIN=https://APP_HOST`, `COMMON_OPERATOR_PASSWORD` (at
 
 Provider adds `PUBLIC_SERVICE_URL=https://PROVIDER_HOST`, `COMMON_SERVICE_KEY` (at least 24 characters), `COMMON_DATA_DIR=/var/lib/common/service`, and the same browser path, alongside seller/facilitator configuration. No signing keys belong here.
 
-`COMMON_MODE=hedera-testnet` and explicit testnet confirmation enable payments; `COMMON_READ_ONLY=yes` disables new work, startup recovery and HCS retries. The prepared workspace's contract budget bounds purchases.
+`COMMON_MODE=hedera-testnet` and explicit testnet confirmation enable payments; `COMMON_READ_ONLY=yes` disables new work, startup recovery and HCS retries. The prepared workspace's contract budget bounds purchases. Set `COMMON_PUBLIC_REVIEW=yes` in `/etc/common/app.env` and restart `common-app` to open stored evidence to judges without a password. Visitors can browse reports, artifacts, decisions and receipts; new evaluations and retries still require operator sign in at `/login`. Keep the operator password configured. Public review does not change provider admission or x402 payment enforcement.
 
 Use `systemctl status common-app common-provider ollama caddy` for health. Preserve `/var/lib/common/app` and `/var/lib/common/service` during releases. Never delete an uncertain operation to retry payment; reconcile the original identity.
 

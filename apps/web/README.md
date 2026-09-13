@@ -25,4 +25,4 @@ The local dashboard is implemented in `public/index.html`, `public/app.js` and `
 
 Provide setup instructions, example configuration, relevant tests and evidence before marking the component complete.
 
-Hosted visitors first see a sign-in form. The password is sent only to the same-origin login endpoint and is never stored by frontend code. The server sets an authenticated HttpOnly cookie, then the frontend opens the dashboard. An expired session returns the user to sign-in.
+Hosted visitors first see a sign-in form unless `COMMON_PUBLIC_REVIEW=yes`. Public review opens the dashboard without credentials, lets visitors browse existing evidence, and disables spending controls. The sidebar offers operator sign in at `/login`. The password is sent only to the same-origin login endpoint and is never stored by frontend code. The server sets an authenticated HttpOnly cookie, then the frontend opens the dashboard. An expired session returns the user to sign-in.

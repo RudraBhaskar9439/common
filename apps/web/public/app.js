@@ -152,7 +152,10 @@ window.addEventListener('hashchange', route);
 function renderHeader() {
   const local = !isTestnet();
   $('mode').textContent = local ? 'LOCAL INFERENCE · NO PAYMENTS' : 'HEDERA TESTNET';
-  $('mode-note').textContent = state.readOnly
+  $('operator-access').hidden = !state.publicReview;
+  $('mode-note').textContent = state.publicReview
+    ? 'Public review: explore reports, browser evidence, agent decisions and Hedera receipts. Starting a new paid evaluation requires operator sign in.'
+    : state.readOnly
     ? 'Read-only review of stored evidence. New evaluations, payments and transaction retries are disabled.'
     : local ? 'Models run on this computer through Ollama. This session sends no Hedera payments or HCS messages.'
     : 'Evaluation purchases settle on Hedera testnet through x402. Uncertain payments stay blocked until reconciled.';

@@ -23,10 +23,12 @@ async function body(req: IncomingMessage) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
 }
 
-export async function startApplication(options: { port?: number; dataDir?: string; executor?: EvaluationExecutor; specProvider?: () => Promise<EvaluationSpec>; workspaceId?: string; readOnly?: boolean; publicOrigin?: string; operatorPassword?: string } = {}) {
+export async function startApplication(options: { port?: number; dataDir?: string; executor?: EvaluationExecutor; specProvider?: () => Promise<EvaluationSpec>; workspaceId?: string; readOnly?: boolean; publicReview?: boolean; publicOrigin?: string; operatorPassword?: string } = {}) {
   try { process.loadEnvFile(join(ROOT, '.env')); } catch { /* Optional for local mode. */ }
   const publicOrigin = options.publicOrigin ?? process.env['COMMON_PUBLIC_ORIGIN'];
   const operatorPassword = options.operatorPassword ?? process.env['COMMON_OPERATOR_PASSWORD'];
+  const publicReview = options.publicReview ?? process.env['COMMON_PUBLIC_REVIEW'] === 'yes';
+  if (publicReview && (!operatorPassword || operatorPassword.length < 24)) throw new Error('Public review requires an operator password of at least 24 characters to protect spending');
   if (publicOrigin && (new URL(publicOrigin).origin !== publicOrigin || !publicOrigin.startsWith('https://') || !operatorPassword || operatorPassword.length < 24)) {
     throw new Error('Hosted mode requires an HTTPS origin and an operator password of at least 24 characters');
   }
@@ -91,18 +93,25 @@ export async function startApplication(options: { port?: number; dataDir?: strin
       }
       const signedIn = !authHash || basicAuthenticated || sessionAuthenticated;
       const assets: Record<string, { name: Parameters<typeof readWebAsset>[0]; type: string }> = {
-        '/': { name: signedIn ? 'index.html' : 'login.html', type: 'text/html; charset=utf-8' },
+        '/': { name: signedIn || publicReview ? 'index.html' : 'login.html', type: 'text/html; charset=utf-8' },
+        '/login': { name: 'login.html', type: 'text/html; charset=utf-8' },
         '/app.js': { name: 'app.js', type: 'text/javascript' }, '/style.css': { name: 'style.css', type: 'text/css' },
         '/login.js': { name: 'login.js', type: 'text/javascript' }, '/login.css': { name: 'login.css', type: 'text/css' },
       };
-      const publicLoginAsset = ['/', '/login.js', '/login.css'].includes(path);
-      if (!signedIn && !publicLoginAsset) return json(res, 401, { error: 'Sign in to Common to continue' });
+      const publicLoginAsset = ['/', '/login', '/login.js', '/login.css'].includes(path);
+      // Public access is an explicit list of evidence GET routes, never a spending session.
+      const publicRead = publicReview && req.method === 'GET' && (
+        ['/', '/app.js', '/style.css', '/api/state'].includes(path)
+        || /^\/api\/reports\/[a-f0-9-]{36}$/.test(path)
+        || /^\/api\/artifacts\/[a-f0-9-]{36}\/[a-f0-9]{64}\.(png|zip)$/.test(path)
+      );
+      if (!signedIn && !publicLoginAsset && !publicRead) return json(res, 401, { error: 'Sign in to Common to continue' });
       const asset = assets[path];
       if (asset && req.method === 'GET') {
         if (path === '/' && signedIn && !sessionAuthenticated) issueCookie(res);
         res.writeHead(200, { 'content-type': asset.type, 'cache-control': 'no-store' }); res.end(await readWebAsset(asset.name)); return;
       }
-      if (!sessionAuthenticated) return json(res, 401, { error: 'Open the application to start a session' });
+      if (!sessionAuthenticated && !publicRead) return json(res, 401, { error: 'Open the application to start a session' });
       if (readOnly && req.method !== 'GET') return json(res, 403, { error: 'Read-only review: new evaluations and transaction retries are disabled' });
       if (path === '/api/state' && req.method === 'GET') {
         let spec: EvaluationSpec | undefined; let readinessError: string | undefined;
@@ -111,7 +120,7 @@ export async function startApplication(options: { port?: number; dataDir?: strin
           const receipt = db.get<DecisionReceipt>('decision-receipts', r.id);
           return receipt?.hcsStatus === 'confirmed' ? `HCS sequence ${receipt.hcsSequenceNumber ?? 'confirmed'}` : 'HCS publication pending';
         })() })).filter(d => d.workspaceId === workspaceId).sort((a,b) => b.createdAt.localeCompare(a.createdAt));
-        return json(res, 200, { workspaceId, mode: executor.mode, readOnly, spec, readinessError, buyer: buyer === policyBuyer ? 'policy' : process.env['OPENAI_MODEL'] || 'gpt-4o-mini',
+        return json(res, 200, { workspaceId, mode: executor.mode, readOnly: readOnly || !sessionAuthenticated, publicReview: publicReview && !sessionAuthenticated, spec, readinessError, buyer: buyer === policyBuyer ? 'policy' : process.env['OPENAI_MODEL'] || 'gpt-4o-mini',
           operations: workflow.operations().map(o => ({ ...o, progress: db.get<TaskEvaluation>('progress', o.operationId) })),
           stats: await workflow.memory.getWorkspaceStats(workspaceId), decisions,
         });
