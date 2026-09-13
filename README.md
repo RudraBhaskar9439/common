@@ -1,52 +1,119 @@
-# Common
+<p align="center">
+  <img src="docs/assets/common-banner.svg" alt="Common. Test the models. Share the evidence." width="100%" />
+</p>
 
-**Evaluate open models. Share the evidence. Pay once for work agents can reuse.**
+<p align="center">
+  <strong>Real browser evaluations for open models. Shared memory for the agents that use them.</strong>
+</p>
 
-Common is a shared spending memory for AI agents choosing open models. It compares models on real browser tasks, stores the measured results, and lets another agent reuse a compatible report instead of purchasing the same evaluation again.
+<p align="center">
+  <a href="https://common.34.71.68.115.sslip.io/"><strong>Explore the live demo ↗</strong></a>
+  &nbsp; · &nbsp;
+  <a href="#quick-start">Run locally</a>
+  &nbsp; · &nbsp;
+  <a href="docs/evidence/cloud-deployment-2026-09-12.json">View verified evidence</a>
+  &nbsp; · &nbsp;
+  <a href="https://eval.34.71.68.115.sslip.io/">Evaluation API</a>
+</p>
 
-Built for ETHOnline 2026 using Hedera, x402, Ollama and Playwright.
+---
 
-[Explore the demo](https://common.34.71.68.115.sslip.io/) · [Evaluation service](https://eval.34.71.68.115.sslip.io/) · [Verified cloud evidence](docs/evidence/cloud-deployment-2026-09-12.json) · [Setup and recovery](docs/ENVIRONMENT.md)
+## One question. One evaluation. A shared answer.
 
-## Why Common
+**Which open model can actually run your support desk?** Common tests models on real browser tasks, records what happened, and lets the next agent reuse the evidence. When a new evaluation is needed, an agent purchases it through x402 on Hedera.
 
-Choosing an open model requires evidence about how it performs on the work you actually need. Model size and benchmark scores alone do not tell you whether an agent can assign a support ticket, update its priority or resolve it correctly.
+<table>
+<tr>
+<td width="33%" valign="top">
+<strong>01 · Evaluate</strong><br /><br />
+Two Qwen models. Five browser tasks. Deterministic checks against actual application state.
+</td>
+<td width="33%" valign="top">
+<strong>02 · Remember</strong><br /><br />
+Keep model revisions, outcomes, timing, screenshots and traces in a reusable report.
+</td>
+<td width="33%" valign="top">
+<strong>03 · Reuse</strong><br /><br />
+Another agent gets a compatible, fresh report without purchasing the same evaluation again.
+</td>
+</tr>
+</table>
 
-Running that evaluation costs inference time and browser execution. When several agents ask the same question, they should be able to share the answer.
+## See the evidence
 
-Common connects three steps: deciding whether new evidence is needed, paying for a bounded evaluation when it is, and making the result reusable. Every recorded decision explains what was chosen, what was rejected and why.
+<a href="https://common.34.71.68.115.sslip.io/#evidence">
+  <img src="docs/assets/common-evidence.png" alt="Live Common dashboard showing Qwen model comparisons, task outcomes and browser evidence" width="100%" />
+</a>
 
-## How it works
+<p align="center"><sub>Actual deployed application. Open the demo without a password to inspect reports, decisions and Hedera receipts.</sub></p>
 
-1. **Give an agent a goal and a budget.** The buyer selects buy, reuse or reject using the available report metadata and spending limits.
-2. **Check shared memory.** Reuse requires workspace access, an exact configuration match, a fresh report and successful delivery.
-3. **Reserve and purchase when needed.** A Solidity contract records the budget reservation. In testnet mode, the service settles an x402 payment through Blocky402 before starting evaluation.
-4. **Run the models in a browser.** Each model chooses actions against the bundled support-desk application. Deterministic checks inspect the resulting application state.
-5. **Store and share the evidence.** Reports include task outcomes, latency, token usage, model revisions, screenshots and browser traces. A subsequent agent can retrieve the same compatible report without another evaluation payment.
-6. **Publish the decision trail.** In testnet mode, HCS records decision notes, with publication references linked to contract events.
+| One paid evaluation | Shared result | Auditable decisions |
+| :---: | :---: | :---: |
+| **0.5 testnet HBAR** | **No second purchase** | **HCS + contract events** |
+| Two models, ten task executions | Agent B reuses Agent A's report | What was chosen, rejected and why |
 
-The current suite compares **Qwen3 1.7B** and **Qwen3 4B** on five tasks: assigning a team, changing ticket priority, resolving a ticket, adding an exact note and filtering the ticket list.
+These highlights describe the [recorded cloud demonstration](docs/evidence/cloud-deployment-2026-09-12.json). Live totals include subsequent activity. Public access is read-only; [operator sign in](https://common.34.71.68.115.sslip.io/login) is required to start paid work.
 
-The buyer and the evaluated models have different roles. The optional buyer uses an OpenAI-compatible API to decide whether to acquire evidence. The models under evaluation run through Ollama. A deterministic buyer policy is available without an API key and is used as a fallback when the hosted buyer is unavailable.
+## From goal to evidence
 
-## Explore the live demo
+```mermaid
+flowchart LR
+    A[Agent goal + budget] --> B{Fresh compatible report?}
+    B -->|Yes| C[Reuse evidence]
+    B -->|No| D{Within budget?}
+    D -->|Yes| E[Reserve + pay with x402]
+    D -->|No| F[Reject]
+    E --> G[Run models in browser]
+    G --> H[Store measured report]
+    H --> C
+    style A fill:#244d39,color:#fff,stroke:#244d39
+    style C fill:#dcebaa,color:#203c32,stroke:#a5bf7d
+    style E fill:#244d39,color:#fff,stroke:#244d39
+    style H fill:#dcebaa,color:#203c32,stroke:#a5bf7d
+```
 
-Open the [Common dashboard](https://common.34.71.68.115.sslip.io/) without a password to inspect existing results.
+The buyer selects **buy, reuse or reject**. The orchestrator enforces access, configuration matching, freshness and spending limits. HCS records the decision trail in testnet mode.
 
-| View | What to explore |
-| --- | --- |
-| Overview | Completed evaluations, reuse rate, purchase totals and recent activity |
-| Agent console | Agent decisions and messages about acquisition, reuse, payment and delivery |
-| Evaluation lab | Evaluation operations and task progress |
-| Evidence | Model comparisons, individual checks, screenshots and downloadable traces |
-| Decision memory | Recorded choices, reasoning and HCS publication references |
-| Ledger | Operation states and Hedera payment receipts |
+The models under evaluation run through **Ollama**. The separate buyer can use an OpenAI-compatible API, with a deterministic policy available without an API key and as a fallback. Goal text guides the buyer; it does not generate new tasks or change the supported suite.
 
-Public visitors have read-only access. Operators can [sign in](https://common.34.71.68.115.sslip.io/login) to start evaluations or resume operations. The provider separately protects job preparation with a service key and report retrieval with per-job tokens.
+## Quick start
 
-The application, evaluation service, models and Chromium run on Google Cloud independently of the development laptop. This hackathon VM is scheduled to stop around **September 15, 2026 at 23:43 IST** unless its runtime is extended.
+Requires **Node.js 24 LTS**, npm and a running [Ollama](https://ollama.com/) instance. Model downloads need several GB of disk space.
 
-## Verified results
+```sh
+git clone https://github.com/RudraBhaskar9439/common.git
+cd common
+npm ci
+npx playwright install chromium
+ollama pull qwen3:1.7b
+ollama pull qwen3:4b
+npm run preflight
+npm run dev
+```
+
+Open **http://127.0.0.1:3000**. A fresh checkout uses local inference and the deterministic buyer, with no wallet or hosted model API key required. Start `ollama serve` separately if Ollama is not already running.
+
+1. Open **Agent console**, select **Agent A**, and enter a goal such as `Compare the two open models for our support-desk browser tasks.`
+2. Keep the budget at `2` and click **Send goal to agent**. Inspect the report after delivery.
+3. Select **Agent B** and send the same request to reuse the fresh report. **Fresh measurement** explicitly creates another evaluation generation.
+
+Local mode sends no payments or HCS messages. Testnet mode charges the configured price for a new paid evaluation.
+
+## Under the hood
+
+| Layer | Technology | Role |
+| --- | --- | --- |
+| Model execution | Ollama + Qwen3 | Run the two open models locally or on the cloud VM |
+| Browser evaluation | Playwright + Chromium | Execute model actions and check task outcomes |
+| Payments | Hedera + Blocky402 + x402 | Settle evaluation purchases on testnet |
+| Spending control | Solidity | Track budgets, reservations and settlement states |
+| Decision history | Hedera Consensus Service | Publish ordered decision notes |
+| Shared memory | SQLite | Persist reports, recovery state and reuse counters |
+| Deployment | Google Cloud + Caddy | Host the application and evaluation service over HTTPS |
+
+
+<details>
+<summary><strong>Recorded results and verification limits</strong></summary>
 
 The recorded cloud verification on September 12, 2026 completed one paid evaluation and one subsequent reuse:
 
@@ -67,7 +134,30 @@ These results describe one recorded run on the cloud VM. They are not general mo
 
 [Cloud verification record](docs/evidence/cloud-deployment-2026-09-12.json) · [Initial testnet verification](docs/evidence/live-evaluation-2026-09-12.json) · [Validation details](docs/VERIFICATION.md)
 
-## Architecture
+</details>
+
+<details>
+<summary><strong>Dashboard views and hosted access</strong></summary>
+
+Open the [Common dashboard](https://common.34.71.68.115.sslip.io/) without a password to inspect existing results.
+
+| View | What to explore |
+| --- | --- |
+| Overview | Completed evaluations, reuse rate, purchase totals and recent activity |
+| Agent console | Agent decisions and messages about acquisition, reuse, payment and delivery |
+| Evaluation lab | Evaluation operations and task progress |
+| Evidence | Model comparisons, individual checks, screenshots and downloadable traces |
+| Decision memory | Recorded choices, reasoning and HCS publication references |
+| Ledger | Operation states and Hedera payment receipts |
+
+Public visitors have read-only access. Operators can [sign in](https://common.34.71.68.115.sslip.io/login) to start evaluations or resume operations. The provider separately protects job preparation with a service key and report retrieval with per-job tokens.
+
+The application, evaluation service, models and Chromium run on Google Cloud independently of the development laptop. This hackathon VM is scheduled to stop around **September 15, 2026 at 23:43 IST** unless its runtime is extended.
+
+</details>
+
+<details>
+<summary><strong>Architecture and source map</strong></summary>
 
 ```mermaid
 flowchart TD
@@ -99,56 +189,10 @@ flowchart TD
 
 Memory discovery currently uses SQLite. The Graph integration is deferred and is not part of the deployed flow.
 
-## Run locally
+</details>
 
-### Requirements
-
-- Node.js 24 LTS and npm
-- [Ollama](https://ollama.com/) running locally
-- Several GB of disk space for the two models and browser installation
-
-```sh
-git clone https://github.com/RudraBhaskar9439/common.git
-cd common
-npm ci
-npx playwright install chromium
-ollama pull qwen3:1.7b
-ollama pull qwen3:4b
-npm run preflight
-npm run dev
-```
-
-If Ollama is not already running, start `ollama serve` in another terminal. Open **http://127.0.0.1:3000**.
-
-A fresh checkout defaults to local inference and a deterministic buyer. No wallet, hosted model API key or blockchain payment is required. Optional configuration belongs in a root `.env` based on [`.env.example`](.env.example). Existing shell variables take precedence.
-
-### Try the workflow
-
-1. Open **Agent console** and select **Agent A**.
-2. Enter a goal such as `Compare the two open models for our support-desk browser tasks.`
-3. Set the budget to `2` and click **Send goal to agent**. With no compatible report, the default policy starts an evaluation.
-4. After delivery, inspect the model comparison and task evidence.
-5. Return to the console, select **Agent B**, keep the same evaluation configuration and click **Send goal to agent**. The fresh report is reused.
-6. Use **Fresh measurement** when you explicitly want a new evaluation generation.
-
-The budget is a request limit. In local mode, evaluations send no Hedera payments or HCS messages. In testnet mode, the configured evaluation price is charged for a new paid run. Free-form goal text guides the buyer's decision; it does not generate new tasks or change the supported model suite.
-
-### Configuration
-
-| Variable | Purpose |
-| --- | --- |
-| `COMMON_MODE` | `local` by default; `hedera-testnet` enables the configured paid workflow |
-| `COMMON_DATA_DIR` | Persistent database and artifact location; defaults to `.common-data` |
-| `COMMON_WORKSPACE_ID` | Workspace identity used for discovery and spending |
-| `COMMON_BUYER` | `policy` or `openai` for the optional hosted buyer |
-| `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | Hosted buyer credentials and OpenAI-compatible endpoint |
-| `COMMON_PUBLIC_REVIEW` | `yes` permits anonymous evidence browsing while protecting spending |
-| `COMMON_OPERATOR_PASSWORD` | Operator access; public review requires at least 24 characters |
-| `COMMON_READ_ONLY` | `yes` disables execution, startup recovery and transaction retries for everyone |
-
-For testnet credentials, contract preparation and the two-process launch, follow the [environment runbook](docs/ENVIRONMENT.md). For HTTPS, persistent volumes and service configuration, use the [Google Cloud deployment guide](infra/deploy/README.md).
-
-## Payment and recovery guarantees
+<details>
+<summary><strong>Payment safety and recovery</strong></summary>
 
 - Reservations and retries use stable operation identities and bound payment parameters.
 - Unknown settlement keeps the reservation claimed. Reconciliation checks the original transaction before the workflow continues.
@@ -158,7 +202,10 @@ For testnet credentials, contract preparation and the two-process launch, follow
 
 The contract is an accounting ledger, not a custody vault. The operator holds the treasury signing key. Purchase budgets exclude network and contract fees. HCS establishes ordering and publication timing; it does not independently verify an agent's reasoning.
 
-## Development and verification
+</details>
+
+<details>
+<summary><strong>Development and test commands</strong></summary>
 
 ```sh
 npm ci --prefix contracts
@@ -175,11 +222,37 @@ npm run measure:reuse
 
 Keep `.common-data` between restarts to preserve reports and recovery state. Run one application worker and one provider worker per respective database.
 
-## Scope
+</details>
 
-Common is a single-workspace hackathon deployment with two supported models and a controlled browser application. It uses bounded-job pricing rather than per-token billing. Broader model coverage, arbitrary browser targets, public job admission and multi-tenant operation are outside the current implementation.
+<details>
+<summary><strong>Environment configuration and testnet setup</strong></summary>
 
-## Project documentation
+### Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `COMMON_MODE` | `local` by default; `hedera-testnet` enables the configured paid workflow |
+| `COMMON_DATA_DIR` | Persistent database and artifact location; defaults to `.common-data` |
+| `COMMON_WORKSPACE_ID` | Workspace identity used for discovery and spending |
+| `COMMON_BUYER` | `policy` or `openai` for the optional hosted buyer |
+| `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | Hosted buyer credentials and OpenAI-compatible endpoint |
+| `COMMON_PUBLIC_REVIEW` | `yes` permits anonymous evidence browsing while protecting spending |
+| `COMMON_OPERATOR_PASSWORD` | Operator access; public review requires at least 24 characters |
+| `COMMON_READ_ONLY` | `yes` disables execution, startup recovery and transaction retries for everyone |
+
+For testnet credentials, contract preparation and the two-process launch, follow the [environment runbook](docs/ENVIRONMENT.md). For HTTPS, persistent volumes and service configuration, use the [Google Cloud deployment guide](infra/deploy/README.md).
+
+</details>
+
+## Current scope
+
+Common is a single-workspace hackathon deployment with two supported models and a controlled browser application. It uses bounded-job pricing rather than per-token billing. Broader model coverage, arbitrary browser targets, public job admission and multi-tenant operation are outside the current implementation. Memory discovery uses SQLite; The Graph is deferred and is not part of the deployed flow.
+
+
+The hackathon VM is scheduled to stop around **September 15, 2026 at 23:43 IST** unless its runtime is extended. Reports remain inspectable after their reuse freshness window expires while the service is running.
+
+
+## Explore the repository
 
 - [Repository map](docs/FILE_MAP.md)
 - [Team workflow](CONTRIBUTING.md)

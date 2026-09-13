@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="390" viewBox="0 0 1200 390" role="img" aria-labelledby="title desc">
+  <title id="title">Common. Test the models. Share the evidence.</title>
+  <desc id="desc">Shared spending memory for AI agents. Agent A buys an evaluation and Agent B reuses the report. Built with Hedera and x402 for ETHOnline 2026.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#dcebaa" stroke-opacity=".055"/></pattern>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#153b2d"/><stop offset="1" stop-color="#0e241c"/></linearGradient>
+  </defs>
+  <rect width="1200" height="390" rx="20" fill="url(#bg)"/>
+  <rect width="1200" height="390" rx="20" fill="url(#grid)"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <circle cx="63" cy="61" r="18" fill="none" stroke="#dcebaa" stroke-width="2"/>
+    <text x="54" y="71" font-family="Georgia, serif" font-size="33" fill="#dcebaa">c</text>
+    <text x="93" y="72" font-size="35" font-weight="700" letter-spacing="-1" fill="#f6f5ef">common<tspan fill="#dcebaa">.</tspan></text>
+    <text x="48" y="160" font-size="51" font-weight="700" letter-spacing="-1.5" fill="#f6f5ef">Test the models.</text>
+    <text x="48" y="220" font-size="51" font-weight="700" letter-spacing="-1.5" fill="#dcebaa">Share the evidence.</text>
+    <text x="50" y="260" font-size="18" fill="#b8c8b8">Shared spending memory for AI agents.</text>
+    <rect x="48" y="310" width="134" height="31" rx="15" fill="#294a38"/>
+    <text x="115" y="330" text-anchor="middle" font-size="12" fill="#e4edcf">HEDERA TESTNET</text>
+    <rect x="193" y="310" width="64" height="31" rx="15" fill="#294a38"/>
+    <text x="225" y="330" text-anchor="middle" font-size="12" fill="#e4edcf">x402</text>
+    <text x="277" y="330" font-size="12" letter-spacing="1.5" fill="#a5b8a6">ETHONLINE 2026</text>
+    <path d="M786 128V177M786 251V298" stroke="#a5bf7d" stroke-width="2"/>
+    <path d="m781 168 5 8 5-8m-10 121 5 8 5-8" fill="none" stroke="#a5bf7d" stroke-width="2"/>
+    <rect x="664" y="52" width="450" height="76" rx="14" fill="#224635" stroke="#47654c"/>
+    <circle cx="706" cy="90" r="21" fill="#dcebaa"/>
+    <text x="706" y="96" text-anchor="middle" font-size="17" font-weight="700" fill="#203c32">A</text>
+    <text x="747" y="83" font-size="17" font-weight="700" fill="#f6f5ef">Agent A acquires evidence</text>
+    <text x="747" y="107" font-size="14" fill="#b8c8b8">One paid browser evaluation</text>
+    <rect x="664" y="177" width="450" height="74" rx="14" fill="#f6f5ef"/>
+    <text x="692" y="208" font-size="17" font-weight="700" fill="#203c32">A report worth remembering</text>
+    <text x="692" y="231" font-size="14" fill="#667462">Outcomes · Screenshots · Traces · Receipts</text>
+    <rect x="664" y="299" width="450" height="56" rx="14" fill="#dcebaa"/>
+    <text x="689" y="333" font-size="16" font-weight="700" fill="#203c32">Agent B reuses it. No second purchase.</text>
+  </g>
+</svg>
